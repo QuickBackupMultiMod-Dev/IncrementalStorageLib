@@ -1,0 +1,90 @@
+plugins {
+    id "java"
+    id 'maven-publish'
+}
+
+repositories {
+    maven {
+        url 'https://repo1.maven.org/maven2/'
+    }
+    maven {
+        url 'https://maven.aliyun.com/repository/central'
+    }
+}
+
+dependencies {
+    // https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-core
+    // https://mvnrepository.com/artifact/org.slf4j/slf4j-api
+    implementation('org.apache.logging.log4j:log4j-core:2.23.1')
+    implementation('org.slf4j:slf4j-api:2.0.13')
+
+    implementation('commons-io:commons-io:2.15.1')
+
+    // dataBase
+    implementation('dev.morphia.morphia:morphia-core:2.3.9')
+    implementation('de.bwaldvogel:mongo-java-server:1.45.0')
+    implementation('de.bwaldvogel:mongo-java-server-h2-backend:1.45.0')
+    implementation('org.mongodb:mongodb-driver-sync:4.11.1')
+    implementation('org.mongodb:bson:4.11.1')
+    implementation('com.h2database:h2:2.2.224')
+
+    implementation('org.lz4:lz4-java:1.8.0')
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+
+    withSourcesJar()
+    withJavadocJar()
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = "UTF-8"
+}
+
+tasks.withType(Javadoc).configureEach { Javadoc task ->
+    task.options.encoding("UTF-8")
+    (task.options as CoreJavadocOptions).addStringOption("Xdoclint:none", "-quiet")
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            groupId = "io.github.skydynamic"
+            artifactId = "incremental-storage-lib"
+            version = "1.0.0"
+
+            from components.java
+        }
+    }
+
+    repositories {
+        maven {
+            name "CJ-Maven"
+            url System.getenv("CJ_MAVEN_URL")
+            credentials {
+                username System.getenv("CJ_MAVEN_USERNAME")
+                password System.getenv("CJ_MAVEN_PASSWORD")
+            }
+        }
+
+//        maven {
+//            name "NekoMavenRelease"
+//            url "https://maven.takeneko.icu/releases"
+//            credentials {
+//                username project.findProperty("nekomaven.user") as String ?: System.getenv("NEKO_USERNAME")
+//                password project.findProperty("nekomaven.password") as String ?: System.getenv("NEKO_PASSWORD")
+//            }
+//        }
+
+//        maven {
+//            name "mavenCentralRelease"
+//            url "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+//            credentials {
+//                username project.findProperty("ossrhUsername") ?: System.getenv("CENTRAL_MAVEN_USERNAME")
+//                password project.findProperty("ossrhPassword") ?: System.getenv("CENTRAL_MAVEN_PASSWORD")
+//            }
+//        }
+    }
+}

@@ -39,7 +39,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Publish
-        run: ./gradlew publishMavenPublicationToMavenCentralReleaseRepository --no-daemon
+        run: ./gradlew publish --no-daemon
         env:
           BUILD_RELEASE: ${{ inputs.release }}
           CJ_MAVEN_URL: ${{ secrets.CJ_MAVEN_URL }}

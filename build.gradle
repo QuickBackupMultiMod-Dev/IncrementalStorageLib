@@ -15,6 +15,16 @@ ext {
     getEnv = {
         return env
     }
+
+    String mavenCentral_username = project.getOrDefault("ossrhUsername", project.getEnv().CENTRAL_MAVEN_USERNAME)
+    String mavenCentral_password = project.getOrDefault("ossrhPassword", project.getEnv().CENTRAL_MAVEN_PASSWORD)
+
+    credentialsMavenCentral = { MavenArtifactRepository mavenArtifactRepository ->
+        mavenArtifactRepository.credentials { PasswordCredentials passwordCredentials ->
+            username(mavenCentral_username)
+            password(mavenCentral_password)
+        }
+    }
 }
 
 repositories {
@@ -99,14 +109,12 @@ publishing {
             }
         }
 
-        maven {
-            name "mavenCentralRelease"
-            url "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
-            credentials {
-                username project.findProperty("ossrhUsername") as String ?: System.getenv("CENTRAL_MAVEN_USERNAME")
-                password project.findProperty("ossrhPassword") as String ?: System.getenv("CENTRAL_MAVEN_PASSWORD")
-            }
-        }
+//        申请没过啊啊啊啊啊
+//        maven {
+//            name "mavenCentralRelease"
+//            url "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
+//            project.credentialsMavenCentral(it)
+//        }
     }
 }
 

@@ -1,6 +1,20 @@
 plugins {
     id "java"
     id 'maven-publish'
+    id 'signing'
+}
+
+ext {
+    Map env = System.getenv()
+
+    getOrDefault = { String key, String defaultValue ->
+        String value
+        (value = project.findProperty(key)) && !value.isEmpty() ? value : defaultValue
+    }
+
+    getEnv = {
+        return env
+    }
 }
 
 repositories {
@@ -48,12 +62,19 @@ tasks.withType(Javadoc).configureEach { Javadoc task ->
     (task.options as CoreJavadocOptions).addStringOption("Xdoclint:none", "-quiet")
 }
 
+String versionSuffix = ''
+if (System.getenv("BUILD_RELEASE") != "true") {
+    String buildNumber = System.getenv("BUILD_ID")
+    versionSuffix += buildNumber != null ? ('+build.' + buildNumber) : '+SNAPSHOT'
+}
+
+version = project.version + versionSuffix
+
 publishing {
     publications {
         maven(MavenPublication) {
             groupId = "io.github.skydynamic"
             artifactId = "incremental-storage-lib"
-            version = "1.0.0"
 
             from components.java
         }
@@ -69,22 +90,43 @@ publishing {
             }
         }
 
-//        maven {
-//            name "NekoMavenRelease"
-//            url "https://maven.takeneko.icu/releases"
-//            credentials {
-//                username project.findProperty("nekomaven.user") as String ?: System.getenv("NEKO_USERNAME")
-//                password project.findProperty("nekomaven.password") as String ?: System.getenv("NEKO_PASSWORD")
-//            }
-//        }
+        maven {
+            name "NekoMavenRelease"
+            url "https://maven.takeneko.icu/releases"
+            credentials {
+                username project.findProperty("nekoMavenUser") as String ?: System.getenv("NEKO_USERNAME")
+                password project.findProperty("nekoMavenPassword") as String ?: System.getenv("NEKO_PASSWORD")
+            }
+        }
 
-//        maven {
-//            name "mavenCentralRelease"
-//            url "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
-//            credentials {
-//                username project.findProperty("ossrhUsername") ?: System.getenv("CENTRAL_MAVEN_USERNAME")
-//                password project.findProperty("ossrhPassword") ?: System.getenv("CENTRAL_MAVEN_PASSWORD")
-//            }
-//        }
+        maven {
+            name "mavenCentralRelease"
+            url "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+            credentials {
+                username project.findProperty("ossrhUsername") as String ?: System.getenv("CENTRAL_MAVEN_USERNAME")
+                password project.findProperty("ossrhPassword") as String ?: System.getenv("CENTRAL_MAVEN_PASSWORD")
+            }
+        }
     }
+}
+
+signing {
+    String signingKey = base64Decode(project.getOrDefault("secrets.gpg.signingKey", project.getEnv().SIGNING_KEY))
+    String signingPassword = project.getOrDefault("secrets.gpg.signingPassword", project.getEnv().SIGNING_PASSWORD)
+
+    required {
+        signingKey
+    }
+
+    useInMemoryPgpKeys(signingKey, signingPassword ? signingPassword : "")
+    sign(publishing.publications)
+}
+
+static def base64Decode(encodedString) {
+    if (encodedString != null) {
+        byte[] decoded = encodedString.decodeBase64()
+        String decode = new String(decoded)
+        return decode
+    }
+    return null
 }

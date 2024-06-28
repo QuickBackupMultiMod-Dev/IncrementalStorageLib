@@ -1,0 +1,52 @@
+name: Release
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      release:
+        type: boolean
+        required: false
+        description: ''
+        default: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Cache gradle files
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('*.gradle', 'gradle.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      - name: Publish
+        run: ./gradlew publishMavenPublicationToMavenCentralReleaseRepository --no-daemon
+        env:
+          BUILD_RELEASE: ${{ inputs.release }}
+          CJ_MAVEN_URL: ${{ secrets.CJ_MAVEN_URL }}
+          CJ_MAVEN_USERNAME: ${{ secrets.CJ_MAVEN_USERNAME }}
+          CJ_MAVEN_PASSWORD: ${{ secrets.CJ_MAVEN_PASSWORD }}
+          CENTRAL_MAVEN_USERNAME: ${{ secrets.CENTRAL_MAVEN_USERNAME }}
+          CENTRAL_MAVEN_PASSWORD: ${{ secrets.CENTRAL_MAVEN_PASSWORD }}
+          NEKO_USERNAME: ${{ secrets.NEKO_USERNAME }}
+          NEKO_PASSWORD: ${{ secrets.NEKO_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}

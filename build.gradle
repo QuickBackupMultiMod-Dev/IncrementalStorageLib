@@ -101,7 +101,7 @@ publishing {
 
         maven {
             name "mavenCentralRelease"
-            url "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+            url "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
             credentials {
                 username project.findProperty("ossrhUsername") as String ?: System.getenv("CENTRAL_MAVEN_USERNAME")
                 password project.findProperty("ossrhPassword") as String ?: System.getenv("CENTRAL_MAVEN_PASSWORD")

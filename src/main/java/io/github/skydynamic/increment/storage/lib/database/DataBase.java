@@ -48,7 +48,7 @@ public class DataBase {
 
         mongoClient = MongoClients.create(connectionString);
 
-        datastore = Morphia.createDatastore(mongoClient, dataBaseManager.getName());
+        datastore = Morphia.createDatastore(mongoClient, dataBaseManager.getCollectionName());
     }
 
     public HashMap<String, String> getIndexFileMap(String name) {
@@ -67,7 +67,7 @@ public class DataBase {
         server = new MongoServer(new H2Backend(
                 dataBaseManager.getDataBasePath()
                     + "/"
-                    + dataBaseManager.getName()
+                    + dataBaseManager.getFileName()
                     + ".mv"
             ));
         server.bind();

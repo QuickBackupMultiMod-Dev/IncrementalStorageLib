@@ -3,14 +3,19 @@ package io.github.skydynamic.increment.storage.lib.Interface;
 import java.nio.file.Path;
 
 public interface IDataBaseManager {
-    String name = "dataBase";
+    String fileName = "dataBase";
+    String collectionName = "";
     Path dataBasePath = Path.of(".");
 
-    void setName(String name);
+    void setFileName(String name);
+
+    void setCollectionName(String name);
 
     void setDataBasePath(Path path);
 
-    String getName();
+    String getFileName();
+
+    String getCollectionName();
 
     Path getDataBasePath();
 }

@@ -15,28 +15,28 @@ import io.github.skydynamic.increment.storage.lib.database.index.type.IndexFile;
 import io.github.skydynamic.increment.storage.lib.logging.LogUtil;
 
 import java.io.File;
-import java.util.HashMap;
+import java.util.Map;
 
+import lombok.Getter;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
+@SuppressWarnings("unused")
 public class DataBase {
     private MongoServer server;
 
+    @Getter
     private Datastore datastore;
 
     MongoClient mongoClient;
     IDataBaseManager dataBaseManager;
     IConfig config;
 
-    public Datastore getDatastore() {
-        return datastore;
-    }
-
     private static final InsertOneOptions INSERT_OPTIONS = new InsertOneOptions();
     private static final DeleteOptions DELETE_OPTIONS = new DeleteOptions();
     private static final Logger LOGGER = LogUtil.getLogger();
 
-    public DataBase(IDataBaseManager dataBaseManager, IConfig config) {
+    public DataBase(@NotNull IDataBaseManager dataBaseManager, IConfig config) {
         File dataBaseDir = dataBaseManager.getDataBasePath().toFile();
         if (!dataBaseDir.exists()) dataBaseDir.mkdirs();
 
@@ -51,7 +51,7 @@ public class DataBase {
         datastore = Morphia.createDatastore(mongoClient, dataBaseManager.getCollectionName());
     }
 
-    public HashMap<String, String> getIndexFileMap(String name) {
+    public Map<String, String> getIndexFileMap(String name) {
         return datastore.find(IndexFile.class).filter(Filters.eq("name", name)).first().getIndexFileMap();
     }
 

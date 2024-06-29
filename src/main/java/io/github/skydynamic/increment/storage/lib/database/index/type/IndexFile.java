@@ -2,28 +2,24 @@ package io.github.skydynamic.increment.storage.lib.database.index.type;
 
 import dev.morphia.annotations.Entity;
 import dev.morphia.annotations.Id;
+import lombok.Getter;
 import org.bson.types.ObjectId;
 
-import java.util.HashMap;
+import java.util.Map;
 
 @Entity(value = "IndexFile", useDiscriminator = false)
+@SuppressWarnings("unused")
 public class IndexFile {
     @Id private ObjectId id;
+    @Getter
     private String name;
-    private HashMap<String, String> indexFileMap;
-
-    public String getName() {
-        return name;
-    }
-
-    public HashMap<String, String> getIndexFileMap() {
-        return indexFileMap;
-    }
+    @Getter
+    private Map<String, String> indexFileMap;
 
     @Deprecated // Morphia only!
     public IndexFile() {}
 
-    public IndexFile(String name, HashMap<String, String> indexFileMap) {
+    public IndexFile(String name, Map<String, String> indexFileMap) {
         this.name = name;
         this.indexFileMap = indexFileMap;
     }

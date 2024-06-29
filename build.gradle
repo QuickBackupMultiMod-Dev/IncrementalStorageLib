@@ -95,6 +95,8 @@ publishing {
     }
 
     repositories {
+        mavenLocal()
+
         maven {
             name "CJ-Maven"
             url System.getenv("CJ_MAVEN_URL")

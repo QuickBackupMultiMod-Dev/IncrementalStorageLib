@@ -7,8 +7,8 @@ import org.bson.types.ObjectId;
 
 import java.util.Map;
 
-@Entity(value = "IndexFile", useDiscriminator = false)
 @SuppressWarnings("unused")
+@Entity(value = "IndexFile", useDiscriminator = false)
 public class IndexFile {
     @Id private ObjectId id;
     @Getter

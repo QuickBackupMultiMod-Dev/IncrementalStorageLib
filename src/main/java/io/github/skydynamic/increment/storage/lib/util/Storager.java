@@ -3,8 +3,6 @@ package io.github.skydynamic.increment.storage.lib.util;
 import com.mongodb.client.MongoCollection;
 import dev.morphia.query.filters.Filters;
 import io.github.skydynamic.increment.storage.lib.database.DataBase;
-import io.github.skydynamic.increment.storage.lib.Interface.IConfig;
-import io.github.skydynamic.increment.storage.lib.Interface.IDataBaseManager;
 import io.github.skydynamic.increment.storage.lib.database.index.type.DataBaseTypes;
 import io.github.skydynamic.increment.storage.lib.database.index.type.FileHash;
 import io.github.skydynamic.increment.storage.lib.database.index.type.IndexFile;
@@ -12,7 +10,9 @@ import io.github.skydynamic.increment.storage.lib.database.index.type.StorageInf
 import io.github.skydynamic.increment.storage.lib.exception.IncrementalStorageException;
 import io.github.skydynamic.increment.storage.lib.logging.LogUtil;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.filefilter.FalseFileFilter;
 import org.apache.commons.io.filefilter.IOFileFilter;
+import org.apache.commons.io.filefilter.NotFileFilter;
 import org.bson.Document;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -32,13 +32,9 @@ public class Storager {
     private static final HashMap<String, String> EMPTY_HASH_MAP = new HashMap<>();
 
     private DataBase dataBase;
-    private IConfig config;
-    private IDataBaseManager dataBaseManager;
 
-    public void startAndSetDataBase() {
-        if (dataBase == null) {
-            dataBase = new DataBase(dataBaseManager, config);
-        }
+    public Storager(DataBase dataBase) {
+        this.dataBase = dataBase;
     }
 
     public void deleteStorage(String name) {
@@ -159,6 +155,19 @@ public class Storager {
     }
 
     /**
+     * Get the storage exists
+     *
+     * @param name Check target storage name
+     * @return Boolean
+     */
+    public boolean storageExists(String name) {
+        return !dataBase.getDatastore()
+            .find(StorageInfo.class)
+            .filter(Filters.eq("name", name))
+            .stream().toList().isEmpty();
+    }
+
+    /**
      * Calculate the file hash value and compare it with the latest storage's files.
      * Then copy the files with differences
      *
@@ -176,7 +185,9 @@ public class Storager {
             throw new IncrementalStorageException("Target is not a directory");
         }
 
-        incrementalStorage(storageInfo, storageDir, targetDir, null, null);
+        IOFileFilter filter = FalseFileFilter.INSTANCE;
+
+        incrementalStorage(storageInfo, storageDir, targetDir, filter, filter);
     }
 
     /**
@@ -303,6 +314,10 @@ public class Storager {
         Path targetDir,
         IOFileFilter fileFilter
     ) throws IncrementalStorageException, IOException {
+        String name = storageInfo.getName();
+
+        if (storageExists(name)) throw new IncrementalStorageException("Storage already exists");
+
         File storageFile = storageDir.toFile();
         if (!storageFile.isDirectory()) {
             throw new IncrementalStorageException("Target is not a directory");

@@ -34,4 +34,9 @@ public class StorageInfo {
         this.useIncrementalStorage = useIncrementalStorage;
         this.indexStorage = indexStorage;
     }
+
+    public StorageInfo(String name, String desc) {
+        this.name = name;
+        this.desc = desc;
+    }
 }

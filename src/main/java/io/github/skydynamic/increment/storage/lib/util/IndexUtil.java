@@ -6,6 +6,7 @@ import io.github.skydynamic.increment.storage.lib.Interface.IConfig;
 import io.github.skydynamic.increment.storage.lib.database.DataBase;
 import io.github.skydynamic.increment.storage.lib.database.index.type.IndexFile;
 import io.github.skydynamic.increment.storage.lib.database.index.type.StorageInfo;
+import lombok.Setter;
 import org.apache.commons.io.FileUtils;
 
 import java.io.File;
@@ -19,10 +20,12 @@ import java.util.Map;
 
 @SuppressWarnings("unused")
 public class IndexUtil {
+    @Setter
     private static DataBase dataBase;
+    @Setter
     private static IConfig config;
 
-    private static void copyIndexFile(String name, File targetFile) throws IOException {
+    public static void copyIndexFile(String name, File targetFile) throws IOException {
         Map<String, String> indexFileMap = dataBase.getIndexFileMap(name);
         Path storagePath = Path.of(config.getStoragePath());
         for (String fileKey : indexFileMap.keySet()) {
@@ -33,7 +36,7 @@ public class IndexUtil {
             File targetFilePathFile = targetFile.toPath()
                 .resolve(fileKey.replace(".", File.separator).replace("#", File.separator))
                 .toFile();
-            FileUtils.copyDirectory(indexFilePathFile, targetFilePathFile);
+            FileUtils.copyFileToDirectory(indexFilePathFile, targetFilePathFile);
         }
     }
 
@@ -53,7 +56,7 @@ public class IndexUtil {
         dataBase.save(new IndexFile(sourceName, newMap));
     }
 
-    public static void reIndexFile(String name) throws IOException {
+    public static void reIndex(String name) throws IOException {
         Path storagePath = Path.of(config.getStoragePath());
         Query<StorageInfo> query = dataBase.getDatastore()
             .find(StorageInfo.class)

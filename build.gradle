@@ -53,6 +53,10 @@ dependencies {
     implementation('com.h2database:h2:2.2.224')
 
     implementation('org.lz4:lz4-java:1.8.0')
+
+    // lombok
+    compileOnly('org.projectlombok:lombok:1.18.24')
+    annotationProcessor('org.projectlombok:lombok:1.18.24')
 }
 
 java {

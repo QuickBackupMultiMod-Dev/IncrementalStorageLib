@@ -15,17 +15,19 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+@SuppressWarnings("unused")
 public class IndexUtil {
     private static DataBase dataBase;
     private static IConfig config;
 
     private static void copyIndexFile(String name, File targetFile) throws IOException {
-        HashMap<String, String> indexFileMap = dataBase.getIndexFileMap(name);
+        Map<String, String> indexFileMap = dataBase.getIndexFileMap(name);
         Path storagePath = Path.of(config.getStoragePath());
         for (String fileKey : indexFileMap.keySet()) {
             File indexFilePathFile = storagePath.resolve(indexFileMap
-                .get(fileKey))
+                    .get(fileKey))
                 .resolve(fileKey.replace(".", File.separator).replace("#", File.separator))
                 .toFile();
             File targetFilePathFile = targetFile.toPath()
@@ -36,12 +38,12 @@ public class IndexUtil {
     }
 
     public static void reIndexFile(
-        HashMap<String, String> sourceIndexFileMap,
+        Map<String, String> sourceIndexFileMap,
         String sourceName,
         String reIndexName,
         boolean isDelete
     ) {
-        HashMap<String, String> newMap = new HashMap<>(sourceIndexFileMap);
+        Map<String, String> newMap = new HashMap<>(sourceIndexFileMap);
         for (String fileKey : sourceIndexFileMap.keySet()) {
             if (sourceIndexFileMap.get(fileKey).equals(sourceName)) {
                 newMap.replace(fileKey, reIndexName);
@@ -54,8 +56,8 @@ public class IndexUtil {
     public static void reIndexFile(String name) throws IOException {
         Path storagePath = Path.of(config.getStoragePath());
         Query<StorageInfo> query = dataBase.getDatastore()
-                .find(StorageInfo.class)
-                .filter(Filters.in("indexBackup", Collections.singletonList(name)));
+            .find(StorageInfo.class)
+            .filter(Filters.in("indexBackup", Collections.singletonList(name)));
 
         List<String> reindexStorageList = new ArrayList<>();
 
@@ -73,11 +75,12 @@ public class IndexUtil {
 
             copyIndexFile(reIndexTargetName, reIndexTarget);
 
-            HashMap<String, String> sourceIndexFileMap = dataBase.getDatastore()
+            IndexFile sourceIndexFile = dataBase.getDatastore()
                 .find(IndexFile.class)
                 .filter(Filters.eq("name", reIndexTargetName))
-                .first()
-                .getIndexFileMap();
+                .first();
+            if (sourceIndexFile == null) throw new NullPointerException("%s does not exist".formatted(reIndexTargetName));
+            Map<String, String> sourceIndexFileMap = sourceIndexFile.getIndexFileMap();
 
             reIndexFile(sourceIndexFileMap, name, reIndexTargetName, true);
 
@@ -91,7 +94,8 @@ public class IndexUtil {
             for (StorageInfo storageInfo : storageQuery) {
                 List<String> indexStorageList = storageInfo.getIndexStorage();
                 indexStorageList.remove(name);
-                if (!indexStorageList.contains(reIndexTargetName) && !reIndexTargetName.equals(storageInfo.getName())) indexStorageList.add(reIndexTargetName);
+                if (!indexStorageList.contains(reIndexTargetName) && !reIndexTargetName.equals(storageInfo.getName()))
+                    indexStorageList.add(reIndexTargetName);
                 storageInfo.setIndexStorage(indexStorageList);
                 dataBase.save(storageInfo);
             }

@@ -2,6 +2,7 @@ package io.github.skydynamic.increment.storage.lib.exception;
 
 import java.security.PrivilegedActionException;
 
+@SuppressWarnings("unused")
 public class IncrementalStorageException extends Exception {
     /**
      * Constructs a new exception with {@code null} as its detail message.
@@ -46,7 +47,7 @@ public class IncrementalStorageException extends Exception {
      * message of {@code (cause==null ? null : cause.toString())} (which
      * typically contains the class and detail message of {@code cause}).
      * This constructor is useful for exceptions that are little more than
-     * wrappers for other throwables (for example, {@link
+     * wrappers for other throwable (for example, {@link
      * PrivilegedActionException}).
      *
      * @param cause the cause (which is saved for later retrieval by the
@@ -67,10 +68,8 @@ public class IncrementalStorageException extends Exception {
      * @param message            the detail message.
      * @param cause              the cause.  (A {@code null} value is permitted,
      *                           and indicates that the cause is nonexistent or unknown.)
-     * @param enableSuppression  whether or not suppression is enabled
-     *                           or disabled
-     * @param writableStackTrace whether or not the stack trace should
-     *                           be writable
+     * @param enableSuppression  whether suppression is enabled or disabled
+     * @param writableStackTrace whether the stack trace should be writable
      * @since 1.7
      */
     public IncrementalStorageException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {

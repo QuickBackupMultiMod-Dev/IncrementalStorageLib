@@ -1,5 +1,6 @@
 package io.github.skydynamic.increment.storage.lib.Interface;
 
+@SuppressWarnings("unused")
 public interface IConfig {
     boolean useInternalDataBase = true;
     String mongoDBUri = "mongodb://localhost:27017";

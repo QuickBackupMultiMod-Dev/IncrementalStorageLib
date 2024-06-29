@@ -2,28 +2,26 @@ package io.github.skydynamic.increment.storage.lib.database.index.type;
 
 import dev.morphia.annotations.Entity;
 import dev.morphia.annotations.Id;
+import lombok.Getter;
 import org.bson.types.ObjectId;
 
-import java.util.HashMap;
+import java.util.Map;
 
+@SuppressWarnings("unused")
 @Entity(value = "FileHash", useDiscriminator = false)
 public class FileHash {
-    @Id private ObjectId id;
+    @Id
+    private ObjectId id;
+    @Getter
     private String name;
-    private HashMap<String, String> fileHashMap;
-
-    public String getName() {
-        return name;
-    }
-
-    public HashMap<String, String> getFileHashMap() {
-        return fileHashMap;
-    }
+    @Getter
+    private Map<String, String> fileHashMap;
 
     @Deprecated // Morphia only!
-    public FileHash() {}
+    public FileHash() {
+    }
 
-    public FileHash(String name, HashMap<String, String> fileHashMap) {
+    public FileHash(String name, Map<String, String> fileHashMap) {
         this.name = name;
         this.fileHashMap = fileHashMap;
     }

@@ -2,6 +2,7 @@ package io.github.skydynamic.increment.storage.lib.Interface;
 
 import java.nio.file.Path;
 
+@SuppressWarnings("unused")
 public interface IDataBaseManager {
     String fileName = "dataBase";
     String collectionName = "";

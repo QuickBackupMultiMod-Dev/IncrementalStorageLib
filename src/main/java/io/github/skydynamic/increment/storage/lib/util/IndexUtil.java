@@ -60,7 +60,7 @@ public class IndexUtil {
         Path storagePath = Path.of(config.getStoragePath());
         Query<StorageInfo> query = dataBase.getDatastore()
             .find(StorageInfo.class)
-            .filter(Filters.in("indexBackup", Collections.singletonList(name)));
+            .filter(Filters.in("indexStorage", Collections.singletonList(name)));
 
         List<String> reindexStorageList = new ArrayList<>();
 

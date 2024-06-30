@@ -25,39 +25,39 @@ public class IndexUtil {
     @Setter
     private static IConfig config;
 
-    public static void copyIndexFile(String name, File targetFile) throws IOException {
+    public static void copyIndexFile(String name, Path storagePath, File targetFile) throws IOException {
         Map<String, String> indexFileMap = dataBase.getIndexFileMap(name);
-        Path storagePath = Path.of(config.getStoragePath());
         for (String fileKey : indexFileMap.keySet()) {
-            File indexFilePathFile = storagePath.resolve(indexFileMap
-                    .get(fileKey))
-                .resolve(fileKey.replace(".", File.separator).replace("#", File.separator))
-                .toFile();
-            File targetFilePathFile = targetFile.toPath()
-                .resolve(fileKey.replace(".", File.separator).replace("#", File.separator))
-                .toFile();
+            File indexFilePathFile = storagePath.resolve(indexFileMap.get(fileKey)).resolve(fileKey).toFile();
+            File targetFilePathFile = targetFile.toPath().resolve(fileKey).getParent().toFile();
             FileUtils.copyFileToDirectory(indexFilePathFile, targetFilePathFile);
         }
     }
 
     public static void reIndexFile(
-        Map<String, String> sourceIndexFileMap,
-        String sourceName,
-        String reIndexName,
+        IndexFile reIndexTargetIndexFile,
+        String reIndexTargetName,
+        String deleteName,
         boolean isDelete
     ) {
-        Map<String, String> newMap = new HashMap<>(sourceIndexFileMap);
-        for (String fileKey : sourceIndexFileMap.keySet()) {
-            if (sourceIndexFileMap.get(fileKey).equals(sourceName)) {
-                newMap.replace(fileKey, reIndexName);
-                if (isDelete) newMap.remove(fileKey);
+        Map<String, String> reIndexTargetIndexFileMap = reIndexTargetIndexFile.getIndexFileMap();
+        Map<String, String> newMap = new HashMap<>(reIndexTargetIndexFileMap);
+
+        for (String fileKey : reIndexTargetIndexFileMap.keySet()) {
+            if (reIndexTargetIndexFileMap.get(fileKey).equals(deleteName)) {
+                if (isDelete) {
+                    newMap.remove(fileKey);
+                } else {
+                    newMap.replace(fileKey, reIndexTargetName);
+                }
             }
         }
-        dataBase.save(new IndexFile(sourceName, newMap));
+        reIndexTargetIndexFile.setIndexFileMap(newMap);
+        dataBase.save(reIndexTargetIndexFile);
     }
 
-    public static void reIndex(String name) throws IOException {
-        Path storagePath = Path.of(config.getStoragePath());
+    public static void reIndex(String name, String resolvePath) throws IOException {
+        Path storagePath = Path.of(config.getStoragePath()).resolve(resolvePath);
         Query<StorageInfo> query = dataBase.getDatastore()
             .find(StorageInfo.class)
             .filter(Filters.in("indexStorage", Collections.singletonList(name)));
@@ -66,26 +66,27 @@ public class IndexUtil {
 
         String reIndexTargetName = null;
         long timestamp = 9999999999999L;
-        for (StorageInfo backupInfo : query) {
-            reindexStorageList.add(backupInfo.getName());
-            if (backupInfo.getTimestamp() < timestamp) {
-                timestamp = backupInfo.getTimestamp();
-                reIndexTargetName = backupInfo.getName();
+
+        for (StorageInfo storageInfo : query) {
+            reindexStorageList.add(storageInfo.getName());
+            if (storageInfo.getTimestamp() < timestamp) {
+                timestamp = storageInfo.getTimestamp();
+                reIndexTargetName = storageInfo.getName();
             }
         }
+
         if (reIndexTargetName != null) {
-            File reIndexTarget = storagePath.resolve(reIndexTargetName).toFile();
+            File reIndexTargetPathFile = storagePath.resolve(reIndexTargetName).toFile();
 
-            copyIndexFile(reIndexTargetName, reIndexTarget);
+            copyIndexFile(reIndexTargetName, storagePath, reIndexTargetPathFile);
 
-            IndexFile sourceIndexFile = dataBase.getDatastore()
+            IndexFile reIndexTargetFile = dataBase.getDatastore()
                 .find(IndexFile.class)
                 .filter(Filters.eq("name", reIndexTargetName))
                 .first();
-            if (sourceIndexFile == null) throw new NullPointerException("%s does not exist".formatted(reIndexTargetName));
-            Map<String, String> sourceIndexFileMap = sourceIndexFile.getIndexFileMap();
+            if (reIndexTargetFile == null) throw new NullPointerException("%s does not exist".formatted(reIndexTargetName));
 
-            reIndexFile(sourceIndexFileMap, name, reIndexTargetName, true);
+            reIndexFile(reIndexTargetFile, reIndexTargetName, name, true);
 
             Query<IndexFile> indexQuery = dataBase.getDatastore()
                 .find(IndexFile.class)
@@ -104,7 +105,7 @@ public class IndexUtil {
             }
 
             for (IndexFile indexFile : indexQuery) {
-                reIndexFile(indexFile.getIndexFileMap(), name, reIndexTargetName, false);
+                reIndexFile(indexFile, reIndexTargetName, name, false);
             }
         }
     }

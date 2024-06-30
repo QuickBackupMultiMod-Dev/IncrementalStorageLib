@@ -10,14 +10,14 @@ import io.github.skydynamic.increment.storage.lib.database.index.type.StorageInf
 import io.github.skydynamic.increment.storage.lib.exception.IncrementalStorageException;
 import io.github.skydynamic.increment.storage.lib.logging.LogUtil;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.filefilter.FalseFileFilter;
+import org.apache.commons.io.filefilter.FileFilterUtils;
 import org.apache.commons.io.filefilter.IOFileFilter;
-import org.apache.commons.io.filefilter.NotFileFilter;
 import org.bson.Document;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
 import java.io.File;
+import java.io.FileFilter;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -29,9 +29,8 @@ import java.util.Map;
 @SuppressWarnings("unused")
 public class Storager {
     private static final Logger LOGGER = LogUtil.getLogger();
-    private static final HashMap<String, String> EMPTY_HASH_MAP = new HashMap<>();
 
-    private DataBase dataBase;
+    private final DataBase dataBase;
 
     public Storager(DataBase dataBase) {
         this.dataBase = dataBase;
@@ -39,8 +38,7 @@ public class Storager {
 
     public void deleteStorage(String name) {
         for (DataBaseTypes type : DataBaseTypes.values()) {
-            MongoCollection<Document> collection = dataBase.getDatastore().getDatabase().getCollection(type.type);
-            collection.findOneAndDelete(com.mongodb.client.model.Filters.eq("name", name));
+            dataBase.getDatastore().find(type.cls).filter(Filters.eq("name", name)).delete();
         }
     }
 
@@ -62,19 +60,14 @@ public class Storager {
     }
 
     private void makeDirAndCopyToDir(File source, @NotNull File dest) throws IOException {
-        if (!dest.exists() && !dest.mkdirs()) {
-            throw new IOException("unable to create directory!");
-        }
-
         FileUtils.copyFileToDirectory(source, dest);
     }
 
     private Collection<File> getDirectoryFiles(
         File file,
-        IOFileFilter fileFilter,
-        IOFileFilter dirFilter
+        IOFileFilter fileFilter
     ) {
-        return FileUtils.listFiles(file, fileFilter, dirFilter);
+        return List.of(file.listFiles((FileFilter) fileFilter));
     }
 
     private @NotNull String getFileHash(@NotNull File file) {
@@ -88,18 +81,22 @@ public class Storager {
 
     private @NotNull HashMap<String, String> getFileHashMap(
         @NotNull Collection<File> files,
-        IOFileFilter fileFilter,
-        IOFileFilter dirFilter
+        @NotNull String parentPathString,
+        boolean isRoot,
+        IOFileFilter fileFilter
     ) {
         HashMap<String, String> map = new HashMap<>();
         for (File file : files) {
             if (file.isDirectory()) {
-                Collection<File> dirFiles = getDirectoryFiles(file, fileFilter, dirFilter);
-                HashMap<String, String> appendMap = getFileHashMap(dirFiles, fileFilter, dirFilter);
+                Collection<File> dirFiles = getDirectoryFiles(file, fileFilter);
+                HashMap<String, String> appendMap = getFileHashMap(
+                    dirFiles, parentPathString + file.getName() + "/",
+                    false, fileFilter
+                );
                 map.putAll(appendMap);
             } else {
                 String fileHash = getFileHash(file);
-                String key = file.getParent().replace(File.separator, ".") + "#" + file.getName();
+                String key = parentPathString + file.getName();
                 map.put(key, fileHash);
             }
         }
@@ -112,6 +109,7 @@ public class Storager {
         T latestStorageHashMap,
         T latestStorageIndexFileMap,
         List<String> indexStorageList,
+        Path sourceDir,
         File destCopyDir
     ) throws IOException {
         Map<String, String> indexMap = new HashMap<>();
@@ -120,13 +118,13 @@ public class Storager {
             String latestHashValue = latestStorageHashMap.get(fileKey);
             if (newHashValue.equals(latestHashValue)) {
                 String index = latestStorageIndexFileMap.get(fileKey);
-                if (index.isEmpty()) index = latestStorageName;
+                if (index == null || index.isEmpty()) index = latestStorageName;
                 indexMap.put(fileKey, index);
                 if (!indexStorageList.contains(index)) indexStorageList.add(index);
             } else {
-                File sourceFile =
-                    new File(fileKey.replace(".", File.separator).replace("#", File.separator));
-                makeDirAndCopyToDir(sourceFile, destCopyDir);
+                Path indexFilePath = Path.of(fileKey);
+                File sourceFile = sourceDir.resolve(indexFilePath).toFile();
+                makeDirAndCopyToDir(sourceFile, destCopyDir.toPath().resolve(indexFilePath.getParent()).toFile());
             }
         }
         Map<String, Object> returnMap = new HashMap<>();
@@ -185,7 +183,7 @@ public class Storager {
             throw new IncrementalStorageException("Target is not a directory");
         }
 
-        IOFileFilter filter = FalseFileFilter.INSTANCE;
+        IOFileFilter filter = FileFilterUtils.trueFileFilter();
 
         incrementalStorage(storageInfo, storageDir, targetDir, filter, filter);
     }
@@ -224,18 +222,17 @@ public class Storager {
 
         Collection<File> files = getDirectoryFiles(
             storageDir.toFile(),
-            fileFilter,
-            dirFilter
+            fileFilter
         );
 
         String latestBackupName = getLatestStorageName();
-        Map<String, String> fileHashMap = getFileHashMap(files, fileFilter, dirFilter);
+        Map<String, String> fileHashMap = getFileHashMap(files, "./", true, fileFilter);
 
         boolean isFirstIncrementalStorage = latestBackupName.isEmpty();
         if (isFirstIncrementalStorage) {
             FileUtils.copyDirectory(storageFile, targetFile, fileFilter);
             dataBase.save(new FileHash(name, fileHashMap));
-            dataBase.save(new IndexFile(name, EMPTY_HASH_MAP));
+            dataBase.save(new IndexFile(name, new HashMap<>()));
             writeStorageInfo(storageInfo);
             return;
         }
@@ -245,6 +242,7 @@ public class Storager {
             .first();
         if (latestFileHash == null) throw new NullPointerException("%s does not exist".formatted(latestBackupName));
         Map<String, String> latestFileHashMap = latestFileHash.getFileHashMap();
+
         IndexFile latestIndexFile = dataBase.getDatastore()
             .find(IndexFile.class)
             .filter(Filters.eq("name", latestBackupName))
@@ -258,6 +256,7 @@ public class Storager {
             latestFileHashMap,
             latestIndexFileMap,
             new ArrayList<>(),
+            storageDir,
             targetFile
         );
 
@@ -297,7 +296,7 @@ public class Storager {
             throw new IncrementalStorageException("Target is not a directory");
         }
 
-        fullStorage(storageInfo, storageDir, targetDir, null);
+        fullStorage(storageInfo, storageDir, targetDir, FileFilterUtils.trueFileFilter());
     }
 
     /**

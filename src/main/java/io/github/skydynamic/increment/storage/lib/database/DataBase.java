@@ -8,6 +8,7 @@ import dev.morphia.Datastore;
 import dev.morphia.DeleteOptions;
 import dev.morphia.InsertOneOptions;
 import dev.morphia.Morphia;
+import dev.morphia.mapping.MapperOptions;
 import dev.morphia.query.filters.Filters;
 import io.github.skydynamic.increment.storage.lib.Interface.IConfig;
 import io.github.skydynamic.increment.storage.lib.Interface.IDataBaseManager;
@@ -57,7 +58,12 @@ public class DataBase {
 
         mongoClient = MongoClients.create(connectionString);
 
-        datastore = Morphia.createDatastore(mongoClient, fixDbName(dataBaseManager.getCollectionName()));
+        MapperOptions mapperOptions = MapperOptions.builder()
+            .storeEmpties(true)
+            .storeNulls(true)
+            .build();
+
+        datastore = Morphia.createDatastore(mongoClient, fixDbName(dataBaseManager.getCollectionName()), mapperOptions);
     }
 
     public Map<String, String> getIndexFileMap(String name) {

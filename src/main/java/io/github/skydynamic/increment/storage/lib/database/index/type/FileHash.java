@@ -17,7 +17,6 @@ public class FileHash {
     @Getter
     private Map<String, String> fileHashMap;
 
-    @Deprecated // Morphia only!
     public FileHash() {
     }
 

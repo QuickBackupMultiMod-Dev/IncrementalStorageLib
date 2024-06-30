@@ -39,18 +39,18 @@ repositories {
 dependencies {
     // https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-core
     // https://mvnrepository.com/artifact/org.slf4j/slf4j-api
-    implementation('org.apache.logging.log4j:log4j-core:2.23.1')
-    implementation('org.slf4j:slf4j-api:2.0.13')
+    compileOnly('org.apache.logging.log4j:log4j-core:2.23.1')
+    compileOnly('org.slf4j:slf4j-api:2.0.13')
 
-    implementation('commons-io:commons-io:2.15.1')
+    compileOnly('commons-io:commons-io:2.15.1')
 
     // dataBase
-    implementation('dev.morphia.morphia:morphia-core:2.3.9')
-    implementation('de.bwaldvogel:mongo-java-server:1.45.0')
-    implementation('de.bwaldvogel:mongo-java-server-h2-backend:1.45.0')
-    implementation('org.mongodb:mongodb-driver-sync:4.11.1')
-    implementation('org.mongodb:bson:4.11.1')
-    implementation('com.h2database:h2:2.2.224')
+    compileOnly('dev.morphia.morphia:morphia-core:2.3.9')
+    compileOnly('de.bwaldvogel:mongo-java-server:1.45.0')
+    compileOnly('de.bwaldvogel:mongo-java-server-h2-backend:1.45.0')
+    compileOnly('org.mongodb:mongodb-driver-sync:4.11.1')
+    compileOnly('org.mongodb:bson:4.11.1')
+    compileOnly('com.h2database:h2:2.2.224')
 
     implementation('org.lz4:lz4-java:1.8.0')
 

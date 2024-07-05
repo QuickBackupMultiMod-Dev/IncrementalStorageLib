@@ -122,12 +122,11 @@ publishing {
             }
         }
 
-//        申请没过啊啊啊啊啊
-//        maven {
-//            name "mavenCentralRelease"
-//            url "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
-//            project.credentialsMavenCentral(it)
-//        }
+        maven {
+            name "mavenCentralRelease"
+            url "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
+            project.credentialsMavenCentral(it)
+        }
     }
 }
 

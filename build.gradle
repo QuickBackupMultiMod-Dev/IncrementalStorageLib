@@ -98,6 +98,30 @@ publishing {
             artifactId = "incremental-storage-lib"
 
             from components.java
+
+            pom {
+                name = 'Incremental Storage Lib'
+                description = 'IncrementalStorageLib aims to provide a generic incremental backup&restore solution, It utilize mongodb to store file hashes to determine which file has changed'
+                url = 'https://github.com/QuickBackupMultiMod-Dev/IncrementalStorageLib'
+                licenses {
+                    license {
+                        name = 'The Apache License, Version 2.0'
+                        url = 'https://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'skydynamic'
+                        name = 'Sky Dynamic'
+                        email = 'tcplxw@outlook.com'
+                    }
+                }
+                scm {
+                    connection = 'https://github.com/QuickBackupMultiMod-Dev/IncrementalStorageLib.git'
+                    developerConnection = 'https://github.com/QuickBackupMultiMod-Dev/IncrementalStorageLib.git'
+                    url = 'https://github.com/QuickBackupMultiMod-Dev/IncrementalStorageLib'
+                }
+            }
         }
     }
 

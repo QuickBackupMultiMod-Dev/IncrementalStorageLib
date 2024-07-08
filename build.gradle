@@ -117,8 +117,8 @@ publishing {
                     }
                 }
                 scm {
-                    connection = 'https://github.com/QuickBackupMultiMod-Dev/IncrementalStorageLib.git'
-                    developerConnection = 'https://github.com/QuickBackupMultiMod-Dev/IncrementalStorageLib.git'
+                    connection = 'scm:git:https://github.com/QuickBackupMultiMod-Dev/IncrementalStorageLib.git'
+                    developerConnection = 'scm:git:ssh://github.com/QuickBackupMultiMod-Dev/IncrementalStorageLib.git'
                     url = 'https://github.com/QuickBackupMultiMod-Dev/IncrementalStorageLib'
                 }
             }

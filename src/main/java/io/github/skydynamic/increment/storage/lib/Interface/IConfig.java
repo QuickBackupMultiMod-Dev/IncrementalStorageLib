@@ -10,7 +10,7 @@ public interface IConfig {
 
     void setMongoDBUri(String uri);
 
-    boolean getUserInternalDataBase();
+    boolean getUseInternalDataBase();
 
     String getMongoDBUri();
 

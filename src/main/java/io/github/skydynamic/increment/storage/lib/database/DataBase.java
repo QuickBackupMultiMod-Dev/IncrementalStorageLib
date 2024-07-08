@@ -51,7 +51,7 @@ public class DataBase {
         if (!dataBaseDir.exists()) dataBaseDir.mkdirs();
 
         String connectionString = config.getMongoDBUri();
-        if (config.getUserInternalDataBase()) {
+        if (config.getUseInternalDataBase()) {
             connectionString = startInternalMongoServer();
             LOGGER.info("Started local MongoDB server at " + server.getConnectionString());
         }

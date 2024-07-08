@@ -138,15 +138,6 @@ publishing {
         }
 
         maven {
-            name "NekoMavenRelease"
-            url "https://maven.takeneko.icu/releases"
-            credentials {
-                username project.findProperty("nekoMavenUser") as String ?: System.getenv("NEKO_USERNAME")
-                password project.findProperty("nekoMavenPassword") as String ?: System.getenv("NEKO_PASSWORD")
-            }
-        }
-
-        maven {
             name "mavenCentralRelease"
             url "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
             project.credentialsMavenCentral(it)

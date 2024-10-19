@@ -6,10 +6,13 @@ import io.github.skydynamic.increment.storage.lib.Interface.IConfig;
 import io.github.skydynamic.increment.storage.lib.database.DataBase;
 import io.github.skydynamic.increment.storage.lib.database.index.type.IndexFile;
 import io.github.skydynamic.increment.storage.lib.database.index.type.StorageInfo;
+import io.github.skydynamic.increment.storage.lib.logging.LogUtil;
 import lombok.Setter;
 import org.apache.commons.io.FileUtils;
+import org.slf4j.Logger;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -20,6 +23,8 @@ import java.util.Map;
 
 @SuppressWarnings("unused")
 public class IndexUtil {
+    private static final Logger LOGGER = LogUtil.getLogger();
+
     @Setter
     private static DataBase dataBase;
     @Setter
@@ -30,7 +35,11 @@ public class IndexUtil {
         for (String fileKey : indexFileMap.keySet()) {
             File indexFilePathFile = storagePath.resolve(indexFileMap.get(fileKey)).resolve(fileKey).toFile();
             File targetFilePathFile = targetFile.toPath().resolve(fileKey).getParent().toFile();
-            FileUtils.copyFileToDirectory(indexFilePathFile, targetFilePathFile);
+            try {
+                FileUtils.copyFileToDirectory(indexFilePathFile, targetFilePathFile);
+            } catch (FileNotFoundException e) {
+                LOGGER.warn("Skip to copy %s because: ".formatted(fileKey), e);
+            }
         }
     }
 

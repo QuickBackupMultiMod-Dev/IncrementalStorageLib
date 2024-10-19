@@ -1,6 +1,5 @@
 package io.github.skydynamic.increment.storage.lib.util;
 
-import com.mongodb.client.MongoCollection;
 import dev.morphia.query.filters.Filters;
 import io.github.skydynamic.increment.storage.lib.database.DataBase;
 import io.github.skydynamic.increment.storage.lib.database.index.type.DataBaseTypes;
@@ -12,7 +11,6 @@ import io.github.skydynamic.increment.storage.lib.logging.LogUtil;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.FileFilterUtils;
 import org.apache.commons.io.filefilter.IOFileFilter;
-import org.bson.Document;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
@@ -21,6 +19,7 @@ import java.io.FileFilter;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -65,9 +64,10 @@ public class Storager {
 
     private Collection<File> getDirectoryFiles(
         File file,
-        IOFileFilter fileFilter
+        IOFileFilter fileFilter,
+        IOFileFilter dirFilter
     ) {
-        return List.of(file.listFiles((FileFilter) fileFilter));
+        return Arrays.stream(file.listFiles((FileFilter) fileFilter)).filter(dirFilter::accept).toList();
     }
 
     private @NotNull String getFileHash(@NotNull File file) {
@@ -83,15 +83,16 @@ public class Storager {
         @NotNull Collection<File> files,
         @NotNull String parentPathString,
         boolean isRoot,
-        IOFileFilter fileFilter
+        IOFileFilter fileFilter,
+        IOFileFilter dirFilter
     ) {
         HashMap<String, String> map = new HashMap<>();
         for (File file : files) {
             if (file.isDirectory()) {
-                Collection<File> dirFiles = getDirectoryFiles(file, fileFilter);
+                Collection<File> dirFiles = getDirectoryFiles(file, fileFilter, dirFilter);
                 HashMap<String, String> appendMap = getFileHashMap(
                     dirFiles, parentPathString + file.getName() + "/",
-                    false, fileFilter
+                    false, fileFilter, dirFilter
                 );
                 map.putAll(appendMap);
             } else {
@@ -222,15 +223,15 @@ public class Storager {
 
         Collection<File> files = getDirectoryFiles(
             storageDir.toFile(),
-            fileFilter
+            fileFilter, dirFilter
         );
 
         String latestBackupName = getLatestStorageName();
-        Map<String, String> fileHashMap = getFileHashMap(files, "./", true, fileFilter);
+        Map<String, String> fileHashMap = getFileHashMap(files, "./", true, fileFilter, dirFilter);
 
         boolean isFirstIncrementalStorage = latestBackupName.isEmpty();
         if (isFirstIncrementalStorage) {
-            FileUtils.copyDirectory(storageFile, targetFile, fileFilter);
+            FileUtils.copyDirectory(storageFile, targetFile, fileFilter.and(dirFilter));
             dataBase.save(new FileHash(name, fileHashMap));
             dataBase.save(new IndexFile(name, new HashMap<>()));
             writeStorageInfo(storageInfo);
@@ -296,7 +297,9 @@ public class Storager {
             throw new IncrementalStorageException("Target is not a directory");
         }
 
-        fullStorage(storageInfo, storageDir, targetDir, FileFilterUtils.trueFileFilter());
+        IOFileFilter filter = FileFilterUtils.trueFileFilter();
+
+        fullStorage(storageInfo, storageDir, targetDir, filter);
     }
 
     /**

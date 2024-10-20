@@ -17,9 +17,12 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @SuppressWarnings("unused")
 public class IndexUtil {
@@ -71,20 +74,12 @@ public class IndexUtil {
             .find(StorageInfo.class)
             .filter(Filters.in("indexStorage", Collections.singletonList(name)));
 
-        List<String> reindexStorageList = new ArrayList<>();
+        Optional<StorageInfo> earliestStorageInfoOptional = query.stream()
+            .min(Comparator.comparingLong(StorageInfo::getTimestamp));
 
-        String reIndexTargetName = null;
-        long timestamp = 9999999999999L;
-
-        for (StorageInfo storageInfo : query) {
-            reindexStorageList.add(storageInfo.getName());
-            if (storageInfo.getTimestamp() < timestamp) {
-                timestamp = storageInfo.getTimestamp();
-                reIndexTargetName = storageInfo.getName();
-            }
-        }
-
-        if (reIndexTargetName != null) {
+        if (earliestStorageInfoOptional.isPresent()) {
+            StorageInfo earliestStorageInfo = earliestStorageInfoOptional.get();
+            String reIndexTargetName = earliestStorageInfo.getName();
             File reIndexTargetPathFile = storagePath.resolve(reIndexTargetName).toFile();
 
             copyIndexFile(reIndexTargetName, storagePath, reIndexTargetPathFile);
@@ -97,6 +92,10 @@ public class IndexUtil {
 
             reIndexFile(reIndexTargetFile, reIndexTargetName, name, true);
 
+            List<String> reindexStorageList = query.stream()
+                .map(StorageInfo::getName)
+                .collect(Collectors.toList());
+
             Query<IndexFile> indexQuery = dataBase.getDatastore()
                 .find(IndexFile.class)
                 .filter(Filters.in("name", reindexStorageList));
@@ -107,8 +106,9 @@ public class IndexUtil {
             for (StorageInfo storageInfo : storageQuery) {
                 List<String> indexStorageList = storageInfo.getIndexStorage();
                 indexStorageList.remove(name);
-                if (!indexStorageList.contains(reIndexTargetName) && !reIndexTargetName.equals(storageInfo.getName()))
+                if (!indexStorageList.contains(reIndexTargetName) && !reIndexTargetName.equals(storageInfo.getName())) {
                     indexStorageList.add(reIndexTargetName);
+                }
                 storageInfo.setIndexStorage(indexStorageList);
                 dataBase.save(storageInfo);
             }

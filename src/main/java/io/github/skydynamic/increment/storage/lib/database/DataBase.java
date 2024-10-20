@@ -53,17 +53,19 @@ public class DataBase {
         String connectionString = config.getMongoDBUri();
         if (config.getUseInternalDataBase()) {
             connectionString = startInternalMongoServer();
-            LOGGER.info("Started local MongoDB server at " + server.getConnectionString());
+            LOGGER.info("Started local MongoDB server at {}", server.getConnectionString());
         }
 
         mongoClient = MongoClients.create(connectionString);
+    }
 
+    public void newDataStore(String collectionName) {
         MapperOptions mapperOptions = MapperOptions.builder()
             .storeEmpties(true)
             .storeNulls(true)
             .build();
 
-        datastore = Morphia.createDatastore(mongoClient, fixDbName(dataBaseManager.getCollectionName()), mapperOptions);
+        datastore = Morphia.createDatastore(mongoClient, fixDbName(collectionName), mapperOptions);
     }
 
     public Map<String, String> getIndexFileMap(String name) {
@@ -80,6 +82,14 @@ public class DataBase {
 
     public <T> void delete (T obj) {
         getDatastore().delete(obj, DELETE_OPTIONS);
+    }
+
+    public void deleteCollection(String name) {
+        mongoClient.getDatabase(fixDbName(name)).drop();
+    }
+
+    public void resetDataStore() {
+        datastore = null;
     }
 
     private String startInternalMongoServer() {

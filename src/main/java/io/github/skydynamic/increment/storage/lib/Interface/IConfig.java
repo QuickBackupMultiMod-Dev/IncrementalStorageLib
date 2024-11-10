@@ -2,17 +2,15 @@ package io.github.skydynamic.increment.storage.lib.Interface;
 
 @SuppressWarnings("unused")
 public interface IConfig {
-    boolean useInternalDataBase = true;
-    String mongoDBUri = "mongodb://localhost:27017";
-    String storagePath = "./storage/";
+    default boolean getUseInternalDataBase() {
+        return true;
+    }
 
-    void setUseInternalDataBase(boolean value);
+    default String getMongoDBUri() {
+        return "mongodb://localhost:27017";
+    }
 
-    void setMongoDBUri(String uri);
-
-    boolean getUseInternalDataBase();
-
-    String getMongoDBUri();
-
-    String getStoragePath();
+    default String getStoragePath() {
+        return "./storage/";
+    }
 }

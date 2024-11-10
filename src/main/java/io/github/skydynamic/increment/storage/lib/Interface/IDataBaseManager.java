@@ -4,14 +4,15 @@ import java.nio.file.Path;
 
 @SuppressWarnings("unused")
 public interface IDataBaseManager {
-    String fileName = "dataBase";
-    Path dataBasePath = Path.of(".");
-
     void setFileName(String name);
 
     void setDataBasePath(Path path);
 
-    String getFileName();
+    default String getFileName() {
+        return "dataBase";
+    }
 
-    Path getDataBasePath();
+    default Path getDataBasePath() {
+        return Path.of(".");
+    }
 }

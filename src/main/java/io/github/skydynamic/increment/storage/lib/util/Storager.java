@@ -9,6 +9,7 @@ import io.github.skydynamic.increment.storage.lib.database.index.type.StorageInf
 import io.github.skydynamic.increment.storage.lib.exception.IncrementalStorageException;
 import io.github.skydynamic.increment.storage.lib.logging.LogUtil;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.filefilter.AndFileFilter;
 import org.apache.commons.io.filefilter.FileFilterUtils;
 import org.apache.commons.io.filefilter.IOFileFilter;
 import org.jetbrains.annotations.NotNull;
@@ -231,7 +232,7 @@ public class Storager {
 
         boolean isFirstIncrementalStorage = latestBackupName.isEmpty();
         if (isFirstIncrementalStorage) {
-            FileUtils.copyDirectory(storageFile, targetFile, fileFilter.and(dirFilter));
+            FileUtils.copyDirectory(storageFile, targetFile, new AndFileFilter(fileFilter, dirFilter));
             dataBase.save(new FileHash(name, fileHashMap));
             dataBase.save(new IndexFile(name, new HashMap<>()));
             writeStorageInfo(storageInfo);

@@ -1,7 +1,10 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
     id "java"
     id 'maven-publish'
     id 'signing'
+    id "org.jetbrains.kotlin.jvm" version "2.1.0"
 }
 
 ext {
@@ -44,15 +47,22 @@ dependencies {
 
     compileOnly('commons-io:commons-io:2.15.1')
 
-    // dataBase
-    compileOnly('dev.morphia.morphia:morphia-core:2.3.9')
-    compileOnly('de.bwaldvogel:mongo-java-server:1.45.0')
-    compileOnly('de.bwaldvogel:mongo-java-server-h2-backend:1.45.0')
-    compileOnly('org.mongodb:mongodb-driver-sync:4.11.1')
-    compileOnly('org.mongodb:bson:4.11.1')
-    compileOnly('com.h2database:h2:2.2.224')
+//    dataBase
+//    compileOnly('dev.morphia.morphia:morphia-core:2.3.9')
+//    compileOnly('de.bwaldvogel:mongo-java-server:1.45.0')
+//    compileOnly('de.bwaldvogel:mongo-java-server-h2-backend:1.45.0')
+//    compileOnly('org.mongodb:mongodb-driver-sync:4.11.1')
+//    compileOnly('org.mongodb:bson:4.11.1')
+//    compileOnly('com.h2database:h2:2.2.224')
 
     implementation('org.lz4:lz4-java:1.8.0')
+
+    // Use Jetbrains Exposed after v1.1.0
+    compileOnly("org.jetbrains.exposed:exposed-core:0.57.0")
+	compileOnly("org.jetbrains.exposed:exposed-jdbc:0.57.0")
+	compileOnly("com.h2database:h2:2.2.224")
+
+    compileOnly("com.google.code.gson:gson:2.10.1")
 
     // lombok
     compileOnly('org.projectlombok:lombok:1.18.24')
@@ -76,6 +86,16 @@ java {
 
 tasks.withType(JavaCompile) {
     options.encoding = "UTF-8"
+}
+
+tasks.withType(KotlinCompile).configureEach {
+	kotlinOptions {
+		jvmTarget = 17
+	}
+}
+
+kotlin {
+    jvmToolchain(17)
 }
 
 tasks.withType(Javadoc).configureEach { Javadoc task ->

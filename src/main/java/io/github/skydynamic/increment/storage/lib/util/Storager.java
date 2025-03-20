@@ -1,11 +1,6 @@
 package io.github.skydynamic.increment.storage.lib.util;
 
-import dev.morphia.query.filters.Filters;
-import io.github.skydynamic.increment.storage.lib.database.DataBase;
-import io.github.skydynamic.increment.storage.lib.database.index.type.DataBaseTypes;
-import io.github.skydynamic.increment.storage.lib.database.index.type.FileHash;
-import io.github.skydynamic.increment.storage.lib.database.index.type.IndexFile;
-import io.github.skydynamic.increment.storage.lib.database.index.type.StorageInfo;
+import io.github.skydynamic.increment.storage.lib.database.*;
 import io.github.skydynamic.increment.storage.lib.exception.IncrementalStorageException;
 import io.github.skydynamic.increment.storage.lib.logging.LogUtil;
 import org.apache.commons.io.FileUtils;
@@ -30,33 +25,37 @@ import java.util.Map;
 public class Storager {
     private static final Logger LOGGER = LogUtil.getLogger();
 
-    private final DataBase dataBase;
+    private final Database database;
 
-    public Storager(DataBase dataBase) {
-        this.dataBase = dataBase;
+    public Storager(Database dataBase) {
+        this.database = dataBase;
     }
 
     public void deleteStorage(String name) {
-        for (DataBaseTypes type : DataBaseTypes.values()) {
-            dataBase.getDatastore().find(type.cls).filter(Filters.eq("name", name)).delete();
+        for (DatabaseTables type : DatabaseTables.getEntries()) {
+            database.deleteTableValue(name, type);
         }
     }
 
     private void writeStorageInfo(
-        String name, String desc,
-        boolean useIncrementalStorage, List<String> indexBackupList
+        String name,
+        String desc,
+        boolean useIncrementalStorage,
+        List<String> indexBackupList
     ) {
-        dataBase.save(
-            new StorageInfo(
-                name, desc,
-                System.currentTimeMillis(), useIncrementalStorage,
-                indexBackupList
-            )
-        );
+        database.insertStorageInfo(name, desc, System.currentTimeMillis(), useIncrementalStorage, indexBackupList);
     }
 
-    private void writeStorageInfo(StorageInfo storageInfo) {
-        dataBase.save(storageInfo);
+    private void writeStorageInfo(
+        StorageInfo storageInfo
+    ) {
+        database.insertStorageInfo(
+            storageInfo.getName(),
+            storageInfo.getDesc(),
+            storageInfo.getTimestamp(),
+            storageInfo.getUseIncrementalStorage(),
+            storageInfo.getIndexStorage()
+        );
     }
 
     private void makeDirAndCopyToDir(File source, @NotNull File dest) throws IOException {
@@ -136,9 +135,10 @@ public class Storager {
     }
 
     private String getLatestStorageName() {
-        List<StorageInfo> infoList = dataBase.getDatastore().find(StorageInfo.class)
+        List<StorageInfo> infoList = database.getAllStorageInfo()
             .stream()
-            .filter(StorageInfo::isUseIncrementalStorage)
+            .filter(StorageInfoTable::isUseIncrementalStorage)
+            .map(StorageInfoTable::getStorageInfo)
             .toList();
         String latestBackupName = "";
         if (!infoList.isEmpty()) {
@@ -161,10 +161,7 @@ public class Storager {
      * @return Boolean
      */
     public boolean storageExists(String name) {
-        return !dataBase.getDatastore()
-            .find(StorageInfo.class)
-            .filter(Filters.eq("name", name))
-            .stream().toList().isEmpty();
+        return database.storageExists(name);
     }
 
     /**
@@ -209,11 +206,7 @@ public class Storager {
     ) throws IncrementalStorageException, IOException {
         String name = storageInfo.getName();
 
-        if (!dataBase.getDatastore()
-            .find(StorageInfo.class)
-            .filter(Filters.eq("name", name))
-            .stream().toList().isEmpty()
-        ) throw new IncrementalStorageException("Storage already exists");
+        if (storageExists(name)) throw new IncrementalStorageException("Storage already exists");
 
         File storageFile = storageDir.toFile();
         File targetFile = targetDir.toFile();
@@ -233,24 +226,18 @@ public class Storager {
         boolean isFirstIncrementalStorage = latestBackupName.isEmpty();
         if (isFirstIncrementalStorage) {
             FileUtils.copyDirectory(storageFile, targetFile, new AndFileFilter(fileFilter, dirFilter));
-            dataBase.save(new FileHash(name, fileHashMap));
-            dataBase.save(new IndexFile(name, new HashMap<>()));
+            database.insertFileHash(name, fileHashMap);
+            database.insertIndexFile(name, new HashMap<>());
             writeStorageInfo(storageInfo);
             return;
         }
-        FileHash latestFileHash = dataBase.getDatastore()
-            .find(FileHash.class)
-            .filter(Filters.eq("name", latestBackupName))
-            .first();
-        if (latestFileHash == null) throw new NullPointerException("%s does not exist".formatted(latestBackupName));
-        Map<String, String> latestFileHashMap = latestFileHash.getFileHashMap();
 
-        IndexFile latestIndexFile = dataBase.getDatastore()
-            .find(IndexFile.class)
-            .filter(Filters.eq("name", latestBackupName))
-            .first();
-        if (latestIndexFile == null) throw new NullPointerException("%s does not exist".formatted(latestBackupName));
+        Map<String, String> latestFileHashMap = database.getFileHashMap(latestBackupName);
+        if (latestFileHashMap.isEmpty()) throw new NullPointerException("%s does not exist".formatted(latestBackupName));
+
+        IndexFile latestIndexFile = database.getIndexFile(latestBackupName);
         Map<String, String> latestIndexFileMap = latestIndexFile.getIndexFileMap();
+        if (latestIndexFileMap.isEmpty()) throw new NullPointerException("%s does not exist".formatted(latestBackupName));
 
         Map<String, Object> resultMap = compareGetIndexFileMap(
             latestBackupName,
@@ -276,8 +263,8 @@ public class Storager {
             });
         }
 
-        dataBase.save(new FileHash(name, fileHashMap));
-        dataBase.save(new IndexFile(name, indexMap));
+        database.insertFileHash(name, fileHashMap);
+        database.insertIndexFile(name, indexMap);
         writeStorageInfo(name, storageInfo.getDesc(), true, indexList);
     }
 

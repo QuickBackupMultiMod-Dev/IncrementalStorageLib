@@ -1,11 +1,9 @@
 package io.github.skydynamic.increment.storage.lib.util;
 
-import dev.morphia.query.Query;
-import dev.morphia.query.filters.Filters;
 import io.github.skydynamic.increment.storage.lib.Interface.IConfig;
-import io.github.skydynamic.increment.storage.lib.database.DataBase;
-import io.github.skydynamic.increment.storage.lib.database.index.type.IndexFile;
-import io.github.skydynamic.increment.storage.lib.database.index.type.StorageInfo;
+import io.github.skydynamic.increment.storage.lib.database.Database;
+import io.github.skydynamic.increment.storage.lib.database.IndexFile;
+import io.github.skydynamic.increment.storage.lib.database.StorageInfo;
 import io.github.skydynamic.increment.storage.lib.logging.LogUtil;
 import lombok.Setter;
 import org.apache.commons.io.FileUtils;
@@ -15,8 +13,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -29,14 +25,14 @@ public class IndexUtil {
     private static final Logger LOGGER = LogUtil.getLogger();
 
     @Setter
-    private static DataBase dataBase;
+    private static Database database;
     @Setter
     private static IConfig config;
 
     public static void copyIndexFile(String name, Path storagePath, File targetFile) throws IOException {
-        Map<String, String> indexFileMap = dataBase.getIndexFileMap(name);
-        for (String fileKey : indexFileMap.keySet()) {
-            File indexFilePathFile = storagePath.resolve(indexFileMap.get(fileKey)).resolve(fileKey).toFile();
+        IndexFile indexFile = database.getIndexFile(name);
+        for (String fileKey : indexFile.getIndexFileMap().keySet()) {
+            File indexFilePathFile = storagePath.resolve(indexFile.getIndexFileMap().get(fileKey)).resolve(fileKey).toFile();
             File targetFilePathFile = targetFile.toPath().resolve(fileKey).getParent().toFile();
             try {
                 FileUtils.copyFileToDirectory(indexFilePathFile, targetFilePathFile);
@@ -52,11 +48,11 @@ public class IndexUtil {
         String deleteName,
         boolean isDelete
     ) {
-        Map<String, String> reIndexTargetIndexFileMap = reIndexTargetIndexFile.getIndexFileMap();
-        Map<String, String> newMap = new HashMap<>(reIndexTargetIndexFileMap);
+        Map<String, String> oldMap = reIndexTargetIndexFile.getIndexFileMap();
+        Map<String, String> newMap = new HashMap<>(oldMap);
 
-        for (String fileKey : reIndexTargetIndexFileMap.keySet()) {
-            if (reIndexTargetIndexFileMap.get(fileKey).equals(deleteName)) {
+        for (String fileKey : oldMap.keySet()) {
+            if (oldMap.get(fileKey).equals(deleteName)) {
                 if (isDelete) {
                     newMap.remove(fileKey);
                 } else {
@@ -64,15 +60,12 @@ public class IndexUtil {
                 }
             }
         }
-        reIndexTargetIndexFile.setIndexFileMap(newMap);
-        dataBase.save(reIndexTargetIndexFile);
+        database.updateIndexFileValue(reIndexTargetIndexFile.getName(), newMap);
     }
 
     public static void reIndex(String name, String resolvePath) throws IOException {
         Path storagePath = Path.of(config.getStoragePath()).resolve(resolvePath);
-        Query<StorageInfo> query = dataBase.getDatastore()
-            .find(StorageInfo.class)
-            .filter(Filters.in("indexStorage", Collections.singletonList(name)));
+        List<StorageInfo> query = database.getStorageInfoWithIndexStorage(name);
 
         Optional<StorageInfo> earliestStorageInfoOptional = query.stream()
             .min(Comparator.comparingLong(StorageInfo::getTimestamp));
@@ -84,11 +77,8 @@ public class IndexUtil {
 
             copyIndexFile(reIndexTargetName, storagePath, reIndexTargetPathFile);
 
-            IndexFile reIndexTargetFile = dataBase.getDatastore()
-                .find(IndexFile.class)
-                .filter(Filters.eq("name", reIndexTargetName))
-                .first();
-            if (reIndexTargetFile == null) throw new NullPointerException("%s does not exist".formatted(reIndexTargetName));
+            IndexFile reIndexTargetFile = database.getIndexFile(reIndexTargetName);
+            Map<String, String> reIndexTargetFileMap = reIndexTargetFile.getIndexFileMap();
 
             reIndexFile(reIndexTargetFile, reIndexTargetName, name, true);
 
@@ -96,12 +86,8 @@ public class IndexUtil {
                 .map(StorageInfo::getName)
                 .collect(Collectors.toList());
 
-            Query<IndexFile> indexQuery = dataBase.getDatastore()
-                .find(IndexFile.class)
-                .filter(Filters.in("name", reindexStorageList));
-            Query<StorageInfo> storageQuery = dataBase.getDatastore()
-                .find(StorageInfo.class)
-                .filter(Filters.in("name", reindexStorageList));
+            List<IndexFile> indexQuery = database.getIndexFileWithNameList(reindexStorageList);
+            List<StorageInfo> storageQuery = database.getStorageInfoWithNameList(reindexStorageList);
 
             for (StorageInfo storageInfo : storageQuery) {
                 List<String> indexStorageList = storageInfo.getIndexStorage();
@@ -109,8 +95,7 @@ public class IndexUtil {
                 if (!indexStorageList.contains(reIndexTargetName) && !reIndexTargetName.equals(storageInfo.getName())) {
                     indexStorageList.add(reIndexTargetName);
                 }
-                storageInfo.setIndexStorage(indexStorageList);
-                dataBase.save(storageInfo);
+                database.updateStorageInfo(storageInfo);
             }
 
             for (IndexFile indexFile : indexQuery) {

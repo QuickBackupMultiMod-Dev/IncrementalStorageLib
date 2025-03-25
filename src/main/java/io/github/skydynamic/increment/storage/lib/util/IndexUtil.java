@@ -13,11 +13,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @SuppressWarnings("unused")
@@ -90,7 +86,7 @@ public class IndexUtil {
             List<StorageInfo> storageQuery = database.getStorageInfoWithNameList(reindexStorageList);
 
             for (StorageInfo storageInfo : storageQuery) {
-                List<String> indexStorageList = storageInfo.getIndexStorage();
+                List<String> indexStorageList = new ArrayList<>(storageInfo.getIndexStorage());
                 indexStorageList.remove(name);
                 if (!indexStorageList.contains(reIndexTargetName) && !reIndexTargetName.equals(storageInfo.getName())) {
                     indexStorageList.add(reIndexTargetName);

@@ -138,7 +138,6 @@ public class Storager {
         List<StorageInfo> infoList = database.getAllStorageInfo()
             .stream()
             .filter(StorageInfoTable::isUseIncrementalStorage)
-            .map(StorageInfoTable::getStorageInfo)
             .toList();
         String latestBackupName = "";
         if (!infoList.isEmpty()) {
@@ -237,7 +236,6 @@ public class Storager {
 
         IndexFile latestIndexFile = database.getIndexFile(latestBackupName);
         Map<String, String> latestIndexFileMap = latestIndexFile.getIndexFileMap();
-        if (latestIndexFileMap.isEmpty()) throw new NullPointerException("%s does not exist".formatted(latestBackupName));
 
         Map<String, Object> resultMap = compareGetIndexFileMap(
             latestBackupName,

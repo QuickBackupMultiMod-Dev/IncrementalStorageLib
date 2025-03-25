@@ -1,7 +1,7 @@
 package io.github.skydynamic.increment.storage.lib.database
 
 import com.google.gson.Gson
-import io.github.skydynamic.increment.storage.lib.Interface.IDataBaseManager
+import io.github.skydynamic.increment.storage.lib.Interface.IDatabaseManager
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -14,9 +14,9 @@ fun String.toMap(): Map<String, String> {
     return if (map is Map<*, *>) map.mapKeys { it.key.toString() }.mapValues { it.value.toString() } else emptyMap()
 }
 
-class Database(val databaseManager: IDataBaseManager) {
+class Database(val databaseManager: IDatabaseManager) {
     private val database: Database = Database.connect(
-        url = "jdbc:h2:file:./${databaseManager.dataBasePath}/${databaseManager.fileName}",
+        url = "jdbc:h2:file:${databaseManager.databasePath}/${databaseManager.fileName}",
         driver = "org.h2.Driver"
     )
 
@@ -113,9 +113,18 @@ class Database(val databaseManager: IDataBaseManager) {
         return transaction(database) {
             StorageInfoTable.selectAll()
                 .where { StorageInfoTable.collectionUuid eq databaseManager.collectionUuid }
-                .where { StorageInfoTable.name eq name }
                 .toList()
-                .isNotEmpty()
+                .any { it[StorageInfoTable.name] == name }
+        }
+    }
+
+    fun getStorageInfoWithName(name: String): StorageInfo? {
+        return transaction(database) {
+            StorageInfoTable.selectAll()
+                .where { StorageInfoTable.collectionUuid eq databaseManager.collectionUuid }
+                .toList()
+                .firstOrNull { it[StorageInfoTable.name] == name }
+                ?.let { StorageInfoTable.getStorageInfo(it) }
         }
     }
 
@@ -123,8 +132,8 @@ class Database(val databaseManager: IDataBaseManager) {
         return transaction(database) {
             StorageInfoTable.selectAll()
                 .where { StorageInfoTable.collectionUuid eq databaseManager.collectionUuid }
-                .where { StorageInfoTable.name inList nameList }
                 .toList()
+                .filter { it[StorageInfoTable.name] in nameList }
                 .map { StorageInfoTable.getStorageInfo(it) }
         }
     }
@@ -139,11 +148,12 @@ class Database(val databaseManager: IDataBaseManager) {
         }
     }
 
-    fun getAllStorageInfo(): List<ResultRow> {
+    fun getAllStorageInfo(): List<StorageInfo> {
         return transaction(database) {
             StorageInfoTable.selectAll()
                 .where { StorageInfoTable.collectionUuid eq databaseManager.collectionUuid }
                 .toList()
+                .map { StorageInfoTable.getStorageInfo(it) }
         }
     }
 
@@ -151,8 +161,8 @@ class Database(val databaseManager: IDataBaseManager) {
         return transaction(database) {
             IndexFileTable.selectAll()
                 .where { IndexFileTable.collectionUuid eq databaseManager.collectionUuid }
-                .where { IndexFileTable.name inList nameList }
                 .toList()
+                .filter { it[IndexFileTable.name] in nameList }
                 .map { IndexFileTable.getIndexFile(it) }
         }
     }
@@ -161,9 +171,8 @@ class Database(val databaseManager: IDataBaseManager) {
         val map =  transaction(database) {
             IndexFileTable.selectAll()
                 .where { IndexFileTable.collectionUuid eq databaseManager.collectionUuid }
-                .where { IndexFileTable.name eq name }
                 .toList()
-                .first()
+                .first { it[IndexFileTable.name] == name }
                 .let {
                     val map = gson.fromJson(it[IndexFileTable.indexFileMap], Map::class.java)
                     return@let if (map is Map<*, *>) map.mapKeys { it.key.toString() }.mapValues { it.value.toString() } else emptyMap()
@@ -176,9 +185,8 @@ class Database(val databaseManager: IDataBaseManager) {
         return transaction(database) {
             FileHashTable.selectAll()
                 .where { FileHashTable.collectionUuid eq databaseManager.collectionUuid }
-                .where { FileHashTable.name eq name }
                 .toList()
-                .first()
+                .first { it[FileHashTable.name] == name }
                 .let {
                     val map = gson.fromJson(it[FileHashTable.fileHashMap], Map::class.java)
                     return@let if (map is Map<*, *>) map.mapKeys { it.key.toString() }.mapValues { it.value.toString() } else emptyMap()

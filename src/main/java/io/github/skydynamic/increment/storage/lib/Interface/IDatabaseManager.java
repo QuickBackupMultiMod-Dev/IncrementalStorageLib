@@ -1,13 +1,12 @@
 package io.github.skydynamic.increment.storage.lib.Interface;
 
-import java.nio.file.Path;
 import java.util.UUID;
 
 @SuppressWarnings("unused")
-public interface IDataBaseManager {
+public interface IDatabaseManager {
     void setFileName(String name);
 
-    void setDataBasePath(Path path);
+    void setDatabasePath(String path);
 
     void setCollectionUuid(UUID uuid);
 
@@ -15,8 +14,8 @@ public interface IDataBaseManager {
         return "dataBase";
     }
 
-    default Path getDataBasePath() {
-        return Path.of(".");
+    default String getDatabasePath() {
+        return ".";
     }
 
     default UUID getCollectionUuid() {

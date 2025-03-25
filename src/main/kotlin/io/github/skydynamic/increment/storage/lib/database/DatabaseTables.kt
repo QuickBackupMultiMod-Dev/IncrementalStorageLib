@@ -24,21 +24,21 @@ data class IndexFile(
 
 open class BaseTable(name: String): Table(name) {
     val id = integer("id").autoIncrement()
-    val name = varchar("name", 255)
+    val name = varchar("name", 65535)
     val collectionUuid = uuid("collection_uuid")
 }
 
 object StorageInfoTable: BaseTable("storage_info") {
-    val desc = varchar("desc", 255)
+    val desc = varchar("desc", 65535)
     val timestamp = long("timestamp")
     val useIncrementalStorage = bool("use_incremental_storage")
-    val indexStorage = array<String>("index_storage", 255)
+    val indexStorage = array<String>("index_storage", 65535)
 
     override val primaryKey = PrimaryKey(id, name = "ISL_SI_ID")
 
     @JvmStatic
-    fun isUseIncrementalStorage(result: ResultRow): Boolean {
-        return result[useIncrementalStorage]
+    fun isUseIncrementalStorage(result: StorageInfo): Boolean {
+        return result.useIncrementalStorage
     }
 
     @JvmStatic
@@ -68,7 +68,7 @@ object IndexFileTable: BaseTable("index_file") {
 }
 
 object FileHashTable: BaseTable("file_hash") {
-    val fileHashMap = varchar("hash", 255)
+    val fileHashMap = text("file_hash_map")
 
     override val primaryKey = PrimaryKey(id, name = "ISL_FH_ID")
 }

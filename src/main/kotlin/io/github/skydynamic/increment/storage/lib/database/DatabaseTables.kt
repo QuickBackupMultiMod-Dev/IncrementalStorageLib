@@ -5,7 +5,6 @@ import org.jetbrains.exposed.sql.Table
 
 enum class DatabaseTables(val cls: Class<out BaseTable>) {
     STORAGE_INFO(StorageInfoTable::class.java),
-    INDEX_FILE(IndexFileTable::class.java),
     FILE_HASH(FileHashTable::class.java)
 }
 
@@ -13,13 +12,7 @@ data class StorageInfo(
     val name: String,
     val desc: String,
     val timestamp: Long,
-    val useIncrementalStorage: Boolean,
-    val indexStorage: List<String>
-)
-
-data class IndexFile(
-    val name: String,
-    val indexFileMap: Map<String, String>
+    val useIncrementalStorage: Boolean
 )
 
 open class BaseTable(name: String): Table(name) {
@@ -32,7 +25,6 @@ object StorageInfoTable: BaseTable("storage_info") {
     val desc = varchar("desc", 65535)
     val timestamp = long("timestamp")
     val useIncrementalStorage = bool("use_incremental_storage")
-    val indexStorage = array<String>("index_storage", 65535)
 
     override val primaryKey = PrimaryKey(id, name = "ISL_SI_ID")
 
@@ -47,22 +39,7 @@ object StorageInfoTable: BaseTable("storage_info") {
             name = result[name],
             desc = result[desc],
             timestamp = result[timestamp],
-            useIncrementalStorage = result[useIncrementalStorage],
-            indexStorage = result[indexStorage].toList()
-        )
-    }
-}
-
-object IndexFileTable: BaseTable("index_file") {
-    val indexFileMap = text("index_file_map")
-
-    override val primaryKey = PrimaryKey(id, name = "ISL_IF_ID")
-
-    @JvmStatic
-    fun getIndexFile(result: ResultRow): IndexFile {
-        return IndexFile(
-            name = result[name],
-            indexFileMap = result[indexFileMap].toMap()
+            useIncrementalStorage = result[useIncrementalStorage]
         )
     }
 }
@@ -71,4 +48,10 @@ object FileHashTable: BaseTable("file_hash") {
     val fileHashMap = text("file_hash_map")
 
     override val primaryKey = PrimaryKey(id, name = "ISL_FH_ID")
+}
+
+object FileHashReferenceTable : BaseTable("file_hash_reference") {
+    val fileHash = varchar("file_hash", 255)
+
+    override val primaryKey = PrimaryKey(id, name = "ISL_FH_REF_ID")
 }

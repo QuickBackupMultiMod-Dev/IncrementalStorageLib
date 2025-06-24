@@ -1,7 +1,7 @@
 package io.github.skydynamic.increment.storage.lib.database
 
 import com.google.gson.Gson
-import io.github.skydynamic.increment.storage.lib.Interface.IDatabaseManager
+import io.github.skydynamic.increment.storage.lib.manager.IDatabaseManager
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -14,15 +14,15 @@ fun String.toMap(): Map<String, String> {
     return if (map is Map<*, *>) map.mapKeys { it.key.toString() }.mapValues { it.value.toString() } else emptyMap()
 }
 
-class Database(val databaseManager: IDatabaseManager) {
+class Database(private val databaseManager: IDatabaseManager) {
     private val database: Database = Database.connect(
-        url = "jdbc:h2:file:${databaseManager.databasePath}/${databaseManager.fileName}",
+        url = "jdbc:h2:file:${databaseManager.getDatabasePath()}/${databaseManager.getFileName()}",
         driver = "org.h2.Driver"
     )
 
     init {
         transaction {
-            SchemaUtils.create(StorageInfoTable, IndexFileTable, FileHashTable)
+            SchemaUtils.create(StorageInfoTable, FileHashTable, FileHashReferenceTable)
         }
     }
 
@@ -30,27 +30,15 @@ class Database(val databaseManager: IDatabaseManager) {
         name: String,
         desc: String,
         timestamp: Long,
-        useIncrementalStorage: Boolean,
-        indexStorage: List<String>
+        useIncrementalStorage: Boolean
     ) {
         transaction(database) {
             StorageInfoTable.insert {
-                it[collectionUuid] = databaseManager.collectionUuid
+                it[collectionUuid] = databaseManager.getCollectionUuid()
                 it[StorageInfoTable.name] = name
                 it[StorageInfoTable.desc] = desc
                 it[StorageInfoTable.timestamp] = timestamp
                 it[StorageInfoTable.useIncrementalStorage] = useIncrementalStorage
-                it[StorageInfoTable.indexStorage] = indexStorage
-            }
-        }
-    }
-
-    fun insertIndexFile(name: String, indexFileMap: Map<String, String>) {
-        transaction(database) {
-            IndexFileTable.insert {
-                it[collectionUuid] = databaseManager.collectionUuid
-                it[IndexFileTable.name] = name
-                it[IndexFileTable.indexFileMap] = gson.toJson(indexFileMap)
             }
         }
     }
@@ -58,31 +46,17 @@ class Database(val databaseManager: IDatabaseManager) {
     fun insertFileHash(name: String, fileHashMap: Map<String, String>) {
         transaction(database) {
             FileHashTable.insert {
-                it[collectionUuid] = databaseManager.collectionUuid
+                it[collectionUuid] = databaseManager.getCollectionUuid()
                 it[FileHashTable.name] = name
                 it[FileHashTable.fileHashMap] = gson.toJson(fileHashMap)
             }
-        }
-    }
 
-    fun updateStorageInfo(
-        storageInfo: StorageInfo
-    ) {
-        transaction(database) {
-            StorageInfoTable.update({
-                ( StorageInfoTable.name eq storageInfo.name) and (StorageInfoTable.collectionUuid eq databaseManager.collectionUuid)
-            }) {
-                it[indexStorage] = storageInfo.indexStorage
-            }
-        }
-    }
-
-    fun updateIndexFileValue(name: String, indexFileMap: Map<String, String>) {
-        transaction(database) {
-            IndexFileTable.update({
-                ( IndexFileTable.name eq name) and (IndexFileTable.collectionUuid eq databaseManager.collectionUuid)
-            }) {
-                it[IndexFileTable.indexFileMap] = gson.toJson(indexFileMap)
+            fileHashMap.keys.forEach { hash ->
+                FileHashReferenceTable.insert {
+                    it[collectionUuid] = databaseManager.getCollectionUuid()
+                    it[FileHashReferenceTable.name] = name
+                    it[fileHash] = hash
+                }
             }
         }
     }
@@ -95,15 +69,14 @@ class Database(val databaseManager: IDatabaseManager) {
         }
     }
 
-    fun <T: BaseTable> deleteTableValue(name: String, table: T) {
+    private fun <T: BaseTable> deleteTableValue(name: String, table: T) {
         transaction(database) {
-            table.deleteWhere(op = { table.name eq name })
+            table.deleteWhere(op = { (table.name eq name) and (table.collectionUuid eq databaseManager.getCollectionUuid()) })
         }
     }
 
     fun deleteTableValue(name: String, tableType: DatabaseTables) {
         when (tableType) {
-            DatabaseTables.INDEX_FILE -> deleteTableValue(name, IndexFileTable)
             DatabaseTables.FILE_HASH -> deleteTableValue(name, FileHashTable)
             DatabaseTables.STORAGE_INFO -> deleteTableValue(name, StorageInfoTable)
         }
@@ -112,7 +85,7 @@ class Database(val databaseManager: IDatabaseManager) {
     fun storageExists(name: String): Boolean {
         return transaction(database) {
             StorageInfoTable.selectAll()
-                .where { StorageInfoTable.collectionUuid eq databaseManager.collectionUuid }
+                .where { StorageInfoTable.collectionUuid eq databaseManager.getCollectionUuid() }
                 .toList()
                 .any { it[StorageInfoTable.name] == name }
         }
@@ -121,7 +94,7 @@ class Database(val databaseManager: IDatabaseManager) {
     fun getStorageInfoWithName(name: String): StorageInfo? {
         return transaction(database) {
             StorageInfoTable.selectAll()
-                .where { StorageInfoTable.collectionUuid eq databaseManager.collectionUuid }
+                .where { StorageInfoTable.collectionUuid eq databaseManager.getCollectionUuid() }
                 .toList()
                 .firstOrNull { it[StorageInfoTable.name] == name }
                 ?.let { StorageInfoTable.getStorageInfo(it) }
@@ -131,60 +104,26 @@ class Database(val databaseManager: IDatabaseManager) {
     fun getStorageInfoWithNameList(nameList: List<String>): List<StorageInfo> {
         return transaction(database) {
             StorageInfoTable.selectAll()
-                .where { StorageInfoTable.collectionUuid eq databaseManager.collectionUuid }
+                .where { StorageInfoTable.collectionUuid eq databaseManager.getCollectionUuid() }
                 .toList()
                 .filter { it[StorageInfoTable.name] in nameList }
                 .map { StorageInfoTable.getStorageInfo(it) }
         }
     }
 
-    fun getStorageInfoWithIndexStorage(indexStorageInfoName: String): List<StorageInfo> {
-        return transaction(database) {
-            StorageInfoTable.selectAll()
-                .where { StorageInfoTable.collectionUuid eq databaseManager.collectionUuid }
-                .toList()
-                .map { StorageInfoTable.getStorageInfo(it) }
-                .filter { it.indexStorage.contains(indexStorageInfoName) }
-        }
-    }
-
     fun getAllStorageInfo(): List<StorageInfo> {
         return transaction(database) {
             StorageInfoTable.selectAll()
-                .where { StorageInfoTable.collectionUuid eq databaseManager.collectionUuid }
+                .where { StorageInfoTable.collectionUuid eq databaseManager.getCollectionUuid() }
                 .toList()
                 .map { StorageInfoTable.getStorageInfo(it) }
         }
-    }
-
-    fun getIndexFileWithNameList(nameList: List<String>): List<IndexFile> {
-        return transaction(database) {
-            IndexFileTable.selectAll()
-                .where { IndexFileTable.collectionUuid eq databaseManager.collectionUuid }
-                .toList()
-                .filter { it[IndexFileTable.name] in nameList }
-                .map { IndexFileTable.getIndexFile(it) }
-        }
-    }
-
-    fun getIndexFile(name: String): IndexFile {
-        val map =  transaction(database) {
-            IndexFileTable.selectAll()
-                .where { IndexFileTable.collectionUuid eq databaseManager.collectionUuid }
-                .toList()
-                .first { it[IndexFileTable.name] == name }
-                .let {
-                    val map = gson.fromJson(it[IndexFileTable.indexFileMap], Map::class.java)
-                    return@let if (map is Map<*, *>) map.mapKeys { it.key.toString() }.mapValues { it.value.toString() } else emptyMap()
-                }
-        }
-        return IndexFile(name, map)
     }
 
     fun getFileHashMap(name: String): Map<String, String> {
         return transaction(database) {
             FileHashTable.selectAll()
-                .where { FileHashTable.collectionUuid eq databaseManager.collectionUuid }
+                .where { FileHashTable.collectionUuid eq databaseManager.getCollectionUuid() }
                 .toList()
                 .first { it[FileHashTable.name] == name }
                 .let {
@@ -193,6 +132,14 @@ class Database(val databaseManager: IDatabaseManager) {
                 }
         }
     }
+
+    fun getReferenceCountForHash(hash: String): Long {
+    return transaction(database) {
+        FileHashReferenceTable.selectAll()
+            .where{ (FileHashReferenceTable.collectionUuid eq databaseManager.getCollectionUuid()) and (FileHashReferenceTable.fileHash eq hash) }
+            .count()
+    }
+}
 
     fun getDatabase(): Database {
         return database

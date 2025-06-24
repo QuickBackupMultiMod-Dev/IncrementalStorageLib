@@ -1,10 +1,12 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
+import java.text.SimpleDateFormat
+
 plugins {
     id "java"
     id 'maven-publish'
     id 'signing'
-    id "org.jetbrains.kotlin.jvm" version "2.1.0"
+    id "org.jetbrains.kotlin.jvm" version "2.2.0"
 }
 
 ext {
@@ -55,7 +57,7 @@ dependencies {
 //    compileOnly('org.mongodb:bson:4.11.1')
 //    compileOnly('com.h2database:h2:2.2.224')
 
-    implementation('org.lz4:lz4-java:1.8.0')
+//    implementation('org.lz4:lz4-java:1.8.0')
 
     // Use Jetbrains Exposed after v1.1.0
     compileOnly("org.jetbrains.exposed:exposed-core:0.57.0")
@@ -63,10 +65,6 @@ dependencies {
 	compileOnly("com.h2database:h2:2.2.224")
 
     compileOnly("com.google.code.gson:gson:2.10.1")
-
-    // lombok
-    compileOnly('org.projectlombok:lombok:1.18.24')
-    annotationProcessor('org.projectlombok:lombok:1.18.24')
 
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
@@ -106,8 +104,10 @@ tasks.withType(Javadoc).configureEach { Javadoc task ->
 String versionSuffix = ''
 if (System.getenv("BUILD_RELEASE") != "true") {
     String buildNumber = System.getenv("BUILD_ID")
-    versionSuffix += buildNumber != null ? ('+build.' + buildNumber) : '+SNAPSHOT'
+    versionSuffix += buildNumber != null ? ('+build.' + buildNumber) : '+build.' + new SimpleDateFormat("yyMMddHH.mm").format(new Date())
 }
+
+println("VersionName: " + project.version + versionSuffix)
 
 version = project.version + versionSuffix
 

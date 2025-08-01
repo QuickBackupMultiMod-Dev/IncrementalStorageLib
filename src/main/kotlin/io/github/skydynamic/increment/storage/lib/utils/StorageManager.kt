@@ -9,6 +9,7 @@ import org.apache.commons.io.filefilter.FileFilterUtils
 import org.apache.commons.io.filefilter.IOFileFilter
 import java.io.File
 
+@Suppress("unused")
 class StorageManager(private val database: Database, private val config: IConfig) {
     private fun getExist(storageName: String) = database.storageExists(storageName)
 
@@ -34,20 +35,48 @@ class StorageManager(private val database: Database, private val config: IConfig
 
         val fileHashMap: MutableMap<String, String> = mutableMapOf()
         files.forEach { file ->
-            val fileHash = HashUtil.getFileHash(file)
-            val hashStart = fileHash.substring(0, 2)
-            if (blogsPath.resolve(hashStart).exists()) {
+            if (file.exists()) {
+                val fileHash = HashUtil.getFileHash(file)
+                val hashStart = fileHash.substring(0, 2)
                 val filePath = blogsPath.resolve(hashStart).resolve(fileHash)
-                if (!filePath.exists()) {
+                if (blogsPath.resolve(hashStart).exists()) {
+                    if (!filePath.exists()) {
+                        FileUtils.copyFile(file, filePath)
+                    }
+                } else {
+                    blogsPath.resolve(hashStart).mkdirs()
                     FileUtils.copyFile(file, filePath)
                 }
-            } else {
-                blogsPath.resolve(hashStart).mkdirs()
-                val filePath = blogsPath.resolve(hashStart).resolve(fileHash)
-                FileUtils.copyFile(file, filePath)
+                fileHashMap[fileHash] = file.relativeTo(sourcePath).path
             }
-            fileHashMap[fileHash] = file.relativeTo(sourcePath).path
         }
+        return fileHashMap
+    }
+
+    private fun processTempFiles(files: List<File>, sourcePath: File) : Map<String, String> {
+        val blogsPath = File(config.getStoragePath()).resolve("blogs")
+        val tmpBlogsPath = File(config.getStoragePath()).resolve("blogs_temp")
+
+        if (!blogsPath.exists()) {
+            blogsPath.mkdirs()
+        }
+        if (!tmpBlogsPath.exists()) {
+            tmpBlogsPath.mkdirs()
+        }
+
+        val fileHashMap: MutableMap<String, String> = mutableMapOf()
+        files.forEach { file ->
+            val fileHash = HashUtil.getFileHash(file)
+            val hashStart = fileHash.substring(0, 2)
+            if (blogsPath.resolve(hashStart).resolve(fileHash).exists()) {
+                fileHashMap[fileHash] = file.relativeTo(sourcePath).path
+            } else {
+                val tmpHashFile = tmpBlogsPath.resolve("blog_temp_$fileHash.tmp")
+                fileHashMap[tmpHashFile.name] = file.relativeTo(sourcePath).path
+                FileUtils.copyFile(file, tmpHashFile)
+            }
+        }
+
         return fileHashMap
     }
 
@@ -80,6 +109,15 @@ class StorageManager(private val database: Database, private val config: IConfig
         }
     }
 
+    fun deleteTempStorage() {
+        val blogsPath = File(config.getStoragePath()).resolve("blogs_temp")
+        blogsPath.deleteRecursively()
+
+        for (type in DatabaseTables.entries) {
+            database.deleteTableValue("restore_temp", type)
+        }
+    }
+
     fun incrementalStorage(storageName: String, desc: String, sourcePath: File) {
         val filter = FileFilterUtils.trueFileFilter()
         incrementalStorage(storageName, desc, sourcePath, filter, filter)
@@ -107,6 +145,26 @@ class StorageManager(private val database: Database, private val config: IConfig
         database.insertStorageInfo(
             storageName,
             desc,
+            System.currentTimeMillis(),
+            true
+        )
+    }
+
+    fun incrementalStorageTemp(sourcePath: File, fileFilter: IOFileFilter, dirFilter: IOFileFilter) {
+        if (sourcePath.isFile) {
+            throw IncrementalStorageException("Source path must be a directory")
+        }
+
+        if (getExist("restore_temp")) {
+            deleteStorage("restore_temp")
+        }
+
+        val sourceFiles = getAllFiles(sourcePath, dirFilter).filter { fileFilter.accept(it) }
+        val fileHashMap = processTempFiles(sourceFiles, sourcePath)
+        database.insertFileHash("restore_temp", fileHashMap)
+        database.insertStorageInfo(
+            "restore_temp",
+            "a5ff1c641758cc02744172a50e577bbe06c2a1c5",
             System.currentTimeMillis(),
             true
         )

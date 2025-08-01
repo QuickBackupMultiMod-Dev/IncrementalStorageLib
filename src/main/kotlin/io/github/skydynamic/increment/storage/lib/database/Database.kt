@@ -117,7 +117,7 @@ class Database(private val databaseManager: IDatabaseManager) {
                 .where { StorageInfoTable.collectionUuid eq databaseManager.getCollectionUuid() }
                 .toList()
                 .map { StorageInfoTable.getStorageInfo(it) }
-        }
+        }.filter { it.desc != "a5ff1c641758cc02744172a50e577bbe06c2a1c5" }
     }
 
     fun getFileHashMap(name: String): Map<String, String> {

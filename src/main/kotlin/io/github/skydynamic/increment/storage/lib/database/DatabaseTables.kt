@@ -51,7 +51,7 @@ object FileHashTable: BaseTable("file_hash") {
 }
 
 object FileHashReferenceTable : BaseTable("file_hash_reference") {
-    val fileHash = varchar("file_hash", 255)
+    val fileHash = varchar("file_hash", 255).index()
 
     override val primaryKey = PrimaryKey(id, name = "ISL_FH_REF_ID")
 }

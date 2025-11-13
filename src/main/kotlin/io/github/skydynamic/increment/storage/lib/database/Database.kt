@@ -51,11 +51,11 @@ class Database(private val databaseManager: IDatabaseManager) {
                 it[FileHashTable.fileHashMap] = gson.toJson(fileHashMap)
             }
 
-            fileHashMap.keys.forEach { hash ->
-                FileHashReferenceTable.insert {
-                    it[collectionUuid] = databaseManager.getCollectionUuid()
-                    it[FileHashReferenceTable.name] = name
-                    it[fileHash] = hash
+            fileHashMap.keys.chunked(1000).forEach { chunk ->
+                FileHashReferenceTable.batchInsert(chunk) { hash ->
+                    this[FileHashReferenceTable.collectionUuid] = databaseManager.getCollectionUuid()
+                    this[FileHashReferenceTable.name] = name
+                    this[FileHashReferenceTable.fileHash] = hash
                 }
             }
         }
@@ -134,10 +134,10 @@ class Database(private val databaseManager: IDatabaseManager) {
     }
 
     fun getReferenceCountForHash(hash: String): Long {
-    return transaction(database) {
-        FileHashReferenceTable.selectAll()
-            .where{ (FileHashReferenceTable.collectionUuid eq databaseManager.getCollectionUuid()) and (FileHashReferenceTable.fileHash eq hash) }
-            .count()
+        return transaction(database) {
+            FileHashReferenceTable.selectAll()
+                .where{ (FileHashReferenceTable.collectionUuid eq databaseManager.getCollectionUuid()) and (FileHashReferenceTable.fileHash eq hash) }
+                .count()
     }
 }
 

@@ -115,13 +115,8 @@ class StorageManager(private val database: Database, private val config: IConfig
         if (name == null) throw IllegalArgumentException("Backup name cannot be null")
 
         val fileHashes = database.getFileHashMap(name)
-        val hashRefCount = mutableMapOf<String, Int>()
-        fileHashes.forEach { hash ->
-            val count = database.getReferenceCountForHash(hash.key)
-            hashRefCount[hash.key] = count.toInt()
-        }
-
-        val deletableHashes = hashRefCount.filter { it.value <= 1 }.keys
+        val referenceCounts = database.getReferenceCountsForHashes(fileHashes.keys.toSet())
+        val deletableHashes = fileHashes.keys.filter { (referenceCounts[it] ?: 0L) <= 1L }
         val blogsPath = File(config.getStoragePath()).resolve("blogs")
         deletableHashes.forEach { hash ->
             val hashStart = hash.take(2)

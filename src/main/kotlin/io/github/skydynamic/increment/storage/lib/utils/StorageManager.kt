@@ -195,4 +195,40 @@ class StorageManager(private val database: Database, private val config: IConfig
             true
         )
     }
+
+    private fun copyDirectory(source: File, name: String) {
+        val fullBackupPath = File(config.getStoragePath()).resolve("full")
+        val target = fullBackupPath.resolve(name)
+
+        if (!target.exists()) {
+            target.mkdirs()
+        } else {
+            FileUtils.deleteDirectory(target)
+        }
+
+        source.listFiles()?.forEach { file ->
+            val targetFile = target.resolve(file.name)
+            FileUtils.copyDirectory(source, targetFile)
+        }
+    }
+
+    fun fullStorage(storageName: String, desc: String, sourcePath: File) {
+        if (sourcePath.isFile) {
+            throw IncrementalStorageException("Source path must be a directory")
+        }
+
+        if (getExist(storageName)) {
+            throw IncrementalStorageException("Storage $storageName already exists")
+        }
+
+        val timestamp = System.currentTimeMillis()
+        copyDirectory(sourcePath, storageName + "_" + timestamp)
+
+        database.insertStorageInfo(
+            storageName,
+            desc,
+            timestamp,
+            false
+        )
+    }
 }

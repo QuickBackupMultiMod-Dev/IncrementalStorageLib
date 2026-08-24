@@ -236,7 +236,7 @@ class StorageManager(private val database: Database, private val config: IConfig
         }
 
         val timestamp = System.currentTimeMillis()
-        copyDirectory(sourcePath, storageName + "_" + timestamp)
+        copyDirectory(sourcePath, storageName)
 
         database.insertStorageInfo(
             storageName,

@@ -244,10 +244,35 @@ class StorageManagerTest {
         val fullRoot = h.storageDir.resolve("full")
         val copies = fullRoot.listFiles()?.filter { it.isDirectory } ?: emptyList()
         assertEquals(1, copies.size)
-        assertTrue(copies.single().name.matches(Regex("full1_\\d+")))
+        assertEquals("full1", copies.single().name)
         assertTrue(copies.single().resolve("a.txt").isFile)
         assertTrue(copies.single().resolve("dir").resolve("b.txt").isFile)
         assertFalse(copies.single().resolve("a.txt").resolve("a.txt").exists())
         assertEquals(false, h.database.getStorageInfoWithName("full1")?.useIncrementalStorage)
+        assertEquals("full1", h.database.getStorageInfoWithName("full1")?.name)
+    }
+
+    @Test
+    fun `fullStorage uses the caller name as the directory name`(@TempDir root: Path) {
+        val h = harness(root)
+        h.file("a.txt", "A".toByteArray())
+        h.manager.fullStorage("full1", "d", h.sourceDir)
+
+        val copies = h.storageDir.resolve("full").listFiles()?.filter { it.isDirectory } ?: emptyList()
+        assertEquals(listOf("full1"), copies.map { it.name })
+        assertEquals("full1", h.database.getStorageInfoWithName("full1")?.name)
+    }
+
+    @Test
+    fun `fullStorage rejects a duplicate name`(@TempDir root: Path) {
+        val h = harness(root)
+        h.file("a.txt", "A".toByteArray())
+        h.manager.fullStorage("full1", "d", h.sourceDir)
+        assertThrows(IncrementalStorageException::class.java) {
+            h.manager.fullStorage("full1", "d", h.sourceDir)
+        }
+        h.manager.fullStorage("full2", "d", h.sourceDir)
+        val copies = h.storageDir.resolve("full").listFiles()?.filter { it.isDirectory } ?: emptyList()
+        assertEquals(setOf("full1", "full2"), copies.map { it.name }.toSet())
     }
 }

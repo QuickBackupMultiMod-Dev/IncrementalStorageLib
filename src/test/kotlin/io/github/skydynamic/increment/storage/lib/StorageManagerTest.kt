@@ -253,6 +253,19 @@ class StorageManagerTest {
     }
 
     @Test
+    fun `fullStorage skips session lock files`(@TempDir root: Path) {
+        val h = harness(root)
+        h.file("level.dat", "L".toByteArray())
+        h.file("session.lock", "locked".toByteArray())
+
+        h.manager.fullStorage("full1", "d", h.sourceDir)
+
+        val copy = h.storageDir.resolve("full").resolve("full1")
+        assertTrue(copy.resolve("level.dat").isFile)
+        assertFalse(copy.resolve("session.lock").exists())
+    }
+
+    @Test
     fun `fullStorage uses the caller name as the directory name`(@TempDir root: Path) {
         val h = harness(root)
         h.file("a.txt", "A".toByteArray())

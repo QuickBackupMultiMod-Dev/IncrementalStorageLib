@@ -215,6 +215,11 @@ class StorageManager(private val database: Database, private val config: IConfig
             if (file.isDirectory) {
                 dest.mkdirs()
             } else if (file.isFile) {
+                // Minecraft holds an exclusive lock on session.lock while the world is open.
+                // Copying it fails on Windows and is not needed to restore the save.
+                if (file.name == "session.lock") {
+                    return@forEach
+                }
                 dest.parentFile.mkdirs()
                 Files.copy(
                     file.toPath(),

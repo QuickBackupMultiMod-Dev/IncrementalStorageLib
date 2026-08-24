@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
@@ -160,7 +159,80 @@ class StorageManagerTest {
         }
     }
 
-    @Disabled("copyDirectory duplicates tree")
+    @Test
+    fun `two identical files in one backup share a blob`(@TempDir root: Path) {
+        val h = harness(root)
+        val payload = "dup-content".toByteArray()
+        h.file("one.txt", payload)
+        h.file("two.txt", payload)
+        h.manager.incrementalStorage("dup", "d", h.sourceDir)
+
+        val blobs = h.blogsDir().walkTopDown().filter { it.isFile && !it.name.startsWith(".part-") }.toList()
+        assertEquals(1, blobs.size)
+        val map = h.database.getFileHashMap("dup")
+        assertEquals(1, map.size)
+        assertEquals(payload.toList(), blobs.single().readBytes().toList())
+    }
+
+    @Test
+    fun `two hundred unique files are all stored`(@TempDir root: Path) {
+        val h = harness(root)
+        repeat(200) { i ->
+            h.file("f$i.txt", "payload-$i".toByteArray())
+        }
+        h.manager.incrementalStorage("many", "d", h.sourceDir)
+        val map = h.database.getFileHashMap("many")
+        assertEquals(200, map.size)
+        val blobs = h.blogsDir().walkTopDown().filter { it.isFile && !it.name.startsWith(".part-") }.toList()
+        assertEquals(200, blobs.size)
+        map.forEach { (hash, relative) ->
+            assertEquals(
+                h.sourceDir.resolve(relative).readBytes().toList(),
+                h.blobFile(hash).readBytes().toList()
+            )
+        }
+    }
+
+    @Test
+    fun `second backup of unchanged tree does not rewrite blobs`(@TempDir root: Path) {
+        val h = harness(root)
+        h.file("a.txt", "stable".toByteArray())
+        h.manager.incrementalStorage("first", "d", h.sourceDir)
+        val stamps = h.blogsDir().walkTopDown()
+            .filter { it.isFile && !it.name.startsWith(".part-") }
+            .associate { it.absolutePath to it.lastModified() }
+
+        Thread.sleep(20)
+        h.manager.incrementalStorage("second", "d", h.sourceDir)
+
+        stamps.forEach { (path, modified) ->
+            assertEquals(modified, File(path).lastModified())
+        }
+    }
+
+    @Test
+    fun `deleteStorage drops reference rows so the last copy can be collected`(@TempDir root: Path) {
+        val h = harness(root)
+        val payload = "gc-me".toByteArray()
+        h.file("a.txt", payload)
+        h.manager.incrementalStorage("s1", "d", h.sourceDir)
+
+        val source2 = root.resolve("source2").toFile().apply { mkdirs() }
+        File(source2, "b.txt").writeBytes(payload)
+        h.manager.incrementalStorage("s2", "d", source2)
+
+        val hash = HashUtil.getFileHash(h.sourceDir.resolve("a.txt"))
+        assertEquals(2L, h.database.getReferenceCountsForHashes(setOf(hash))[hash])
+
+        h.manager.deleteStorage("s1")
+        assertTrue(h.blobFile(hash).isFile)
+        assertEquals(1L, h.database.getReferenceCountsForHashes(setOf(hash))[hash])
+
+        h.manager.deleteStorage("s2")
+        assertFalse(h.blobFile(hash).exists())
+        assertEquals(0L, h.database.getReferenceCountsForHashes(setOf(hash))[hash])
+    }
+
     @Test
     fun `fullStorage copies each source file once`(@TempDir root: Path) {
         val h = harness(root)

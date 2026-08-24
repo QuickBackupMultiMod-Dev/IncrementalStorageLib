@@ -80,6 +80,7 @@ dependencies {
 
 test {
     useJUnitPlatform()
+    systemProperty "incremental.runBenchmark", System.getProperty("incremental.runBenchmark", findProperty("incremental.runBenchmark") ?: "")
 }
 
 java {

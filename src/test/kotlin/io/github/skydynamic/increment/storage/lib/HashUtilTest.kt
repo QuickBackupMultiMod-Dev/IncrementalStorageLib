@@ -57,4 +57,47 @@ class HashUtilTest {
             HashUtil.getFileHash(missing)
         }
     }
+
+    @Test
+    fun `concurrent hashes of the same file agree`(@TempDir dir: Path) {
+        val file = dir.resolve("shared.bin").toFile()
+        file.writeBytes(ByteArray(64 * 1024 + 17) { it.toByte() })
+        val expected = HashUtil.getFileHash(file)
+        val results = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+        val threads = (0 until 16).map {
+            Thread {
+                repeat(100) {
+                    results.add(HashUtil.getFileHash(file))
+                }
+            }
+        }
+        threads.forEach { it.start() }
+        threads.forEach { it.join() }
+        assertEquals(setOf(expected), results)
+    }
+
+    @Test
+    fun `ingestToStream matches getFileHash and copies bytes`(@TempDir dir: Path) {
+        val cases = listOf(
+            ByteArray(0),
+            "abc".toByteArray(),
+            ByteArray(64 * 1024 + 1) { 7 }
+        )
+        for ((index, payload) in cases.withIndex()) {
+            val src = dir.resolve("src-$index").toFile()
+            val dest = dir.resolve("dest-$index").toFile()
+            src.writeBytes(payload)
+            val ingested = dest.outputStream().use { out -> HashUtil.ingestToStream(src, out) }
+            assertEquals(HashUtil.getFileHash(src), ingested)
+            assertEquals(payload.toList(), dest.readBytes().toList())
+        }
+    }
+
+    @Test
+    fun `hashBytes matches file hash for abc`() {
+        assertEquals(
+            "900150983cd24fb0d6963f7d28e17f72",
+            HashUtil.hashBytes("abc".toByteArray())
+        )
+    }
 }

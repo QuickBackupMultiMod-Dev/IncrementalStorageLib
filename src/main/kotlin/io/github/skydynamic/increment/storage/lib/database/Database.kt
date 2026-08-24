@@ -1,6 +1,7 @@
 package io.github.skydynamic.increment.storage.lib.database
 
 import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import io.github.skydynamic.increment.storage.lib.manager.IDatabaseManager
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.Database
@@ -8,10 +9,10 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.transactions.transaction
 
 private val gson = Gson()
+private val mapType: java.lang.reflect.Type = object : TypeToken<Map<String, String>>() {}.type
 
 fun String.toMap(): Map<String, String> {
-    val map = gson.fromJson(this, Map::class.java)
-    return if (map is Map<*, *>) map.mapKeys { it.key.toString() }.mapValues { it.value.toString() } else emptyMap()
+    return gson.fromJson(this, mapType) ?: emptyMap()
 }
 
 class Database(private val databaseManager: IDatabaseManager) {
@@ -79,36 +80,50 @@ class Database(private val databaseManager: IDatabaseManager) {
 
     fun deleteTableValue(name: String, tableType: DatabaseTables) {
         when (tableType) {
-            DatabaseTables.FILE_HASH -> deleteTableValue(name, FileHashTable)
+            DatabaseTables.FILE_HASH -> {
+                deleteTableValue(name, FileHashTable)
+                deleteTableValue(name, FileHashReferenceTable)
+            }
             DatabaseTables.STORAGE_INFO -> deleteTableValue(name, StorageInfoTable)
         }
     }
 
     fun storageExists(name: String): Boolean {
         return transaction(database) {
-            StorageInfoTable.selectAll()
-                .where { StorageInfoTable.collectionUuid eq databaseManager.getCollectionUuid() }
-                .toList()
-                .any { it[StorageInfoTable.name] == name }
+            !StorageInfoTable
+                .select(StorageInfoTable.id)
+                .where {
+                    (StorageInfoTable.collectionUuid eq databaseManager.getCollectionUuid()) and
+                        (StorageInfoTable.name eq name)
+                }
+                .limit(1)
+                .empty()
         }
     }
 
     fun getStorageInfoWithName(name: String): StorageInfo? {
         return transaction(database) {
             StorageInfoTable.selectAll()
-                .where { StorageInfoTable.collectionUuid eq databaseManager.getCollectionUuid() }
-                .toList()
-                .firstOrNull { it[StorageInfoTable.name] == name }
+                .where {
+                    (StorageInfoTable.collectionUuid eq databaseManager.getCollectionUuid()) and
+                        (StorageInfoTable.name eq name)
+                }
+                .limit(1)
+                .firstOrNull()
                 ?.let { StorageInfoTable.getStorageInfo(it) }
         }
     }
 
     fun getStorageInfoWithNameList(nameList: List<String>): List<StorageInfo> {
+        if (nameList.isEmpty()) {
+            return emptyList()
+        }
         return transaction(database) {
             StorageInfoTable.selectAll()
-                .where { StorageInfoTable.collectionUuid eq databaseManager.getCollectionUuid() }
-                .toList()
-                .filter { it[StorageInfoTable.name] in nameList }
+                .where {
+                    (StorageInfoTable.collectionUuid eq databaseManager.getCollectionUuid()) and
+                        (StorageInfoTable.name inList nameList)
+                }
                 .map { StorageInfoTable.getStorageInfo(it) }
         }
     }
@@ -116,22 +131,24 @@ class Database(private val databaseManager: IDatabaseManager) {
     fun getAllStorageInfo(): List<StorageInfo> {
         return transaction(database) {
             StorageInfoTable.selectAll()
-                .where { StorageInfoTable.collectionUuid eq databaseManager.getCollectionUuid() }
-                .toList()
+                .where {
+                    (StorageInfoTable.collectionUuid eq databaseManager.getCollectionUuid()) and
+                        (StorageInfoTable.desc neq RESTORE_TEMP_DESC)
+                }
                 .map { StorageInfoTable.getStorageInfo(it) }
-        }.filter { it.desc != "a5ff1c641758cc02744172a50e577bbe06c2a1c5" }
+        }
     }
 
     fun getFileHashMap(name: String): Map<String, String> {
         return transaction(database) {
-            FileHashTable.selectAll()
-                .where { FileHashTable.collectionUuid eq databaseManager.getCollectionUuid() }
-                .toList()
-                .first { it[FileHashTable.name] == name }
-                .let {
-                    val map = gson.fromJson(it[FileHashTable.fileHashMap], Map::class.java)
-                    return@let if (map is Map<*, *>) map.mapKeys { it.key.toString() }.mapValues { it.value.toString() } else emptyMap()
+            val row = FileHashTable.selectAll()
+                .where {
+                    (FileHashTable.collectionUuid eq databaseManager.getCollectionUuid()) and
+                        (FileHashTable.name eq name)
                 }
+                .limit(1)
+                .first()
+            gson.fromJson(row[FileHashTable.fileHashMap], mapType) ?: emptyMap()
         }
     }
 
@@ -195,6 +212,15 @@ class Database(private val databaseManager: IDatabaseManager) {
             exec(
                 "CREATE INDEX IF NOT EXISTS $FILE_HASH_REFERENCE_INDEX_NAME ON $FILE_HASH_REFERENCE_TABLE_NAME($FILE_HASH_COLUMN_NAME)"
             )
+            exec(
+                "CREATE INDEX IF NOT EXISTS storage_info_uuid_name ON storage_info(collection_uuid, name)"
+            )
+            exec(
+                "CREATE INDEX IF NOT EXISTS file_hash_uuid_name ON file_hash(collection_uuid, name)"
+            )
+            exec(
+                "CREATE INDEX IF NOT EXISTS file_hash_reference_uuid_hash ON file_hash_reference(collection_uuid, file_hash)"
+            )
         }
     }
 
@@ -203,5 +229,6 @@ class Database(private val databaseManager: IDatabaseManager) {
         private const val FILE_HASH_REFERENCE_TABLE_NAME = "file_hash_reference"
         private const val FILE_HASH_REFERENCE_INDEX_NAME = "file_hash_reference_file_hash"
         private const val FILE_HASH_COLUMN_NAME = "file_hash"
+        private const val RESTORE_TEMP_DESC = "a5ff1c641758cc02744172a50e577bbe06c2a1c5"
     }
 }

@@ -28,6 +28,10 @@ object StorageInfoTable: BaseTable("storage_info") {
 
     override val primaryKey = PrimaryKey(id, name = "ISL_SI_ID")
 
+    init {
+        index("storage_info_uuid_name", false, collectionUuid, name)
+    }
+
     @JvmStatic
     fun isUseIncrementalStorage(result: StorageInfo): Boolean {
         return result.useIncrementalStorage
@@ -48,10 +52,18 @@ object FileHashTable: BaseTable("file_hash") {
     val fileHashMap = text("file_hash_map")
 
     override val primaryKey = PrimaryKey(id, name = "ISL_FH_ID")
+
+    init {
+        index("file_hash_uuid_name", false, collectionUuid, name)
+    }
 }
 
 object FileHashReferenceTable : BaseTable("file_hash_reference") {
     val fileHash = varchar("file_hash", 255).index()
 
     override val primaryKey = PrimaryKey(id, name = "ISL_FH_REF_ID")
+
+    init {
+        index("file_hash_reference_uuid_hash", false, collectionUuid, fileHash)
+    }
 }

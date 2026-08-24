@@ -94,4 +94,26 @@ class DatabaseQueryTest {
         assertEquals(setOf(java.io.File("b.txt").path), mapB.values.toSet())
         assertTrue(mapA.keys.none { it in mapB.keys } || mapA.values != mapB.values)
     }
+
+    @Test
+    fun `lookups remain correct among fifty storages`(@TempDir root: Path) {
+        val h = harness(root)
+        repeat(50) { i ->
+            val source = root.resolve("src$i").toFile().apply { mkdirs() }
+            java.io.File(source, "f.txt").writeBytes("payload-$i".toByteArray())
+            h.manager.incrementalStorage("n$i", "d$i", source)
+        }
+        val info = h.database.getStorageInfoWithName("n49")
+        assertEquals("n49", info?.name)
+        val map = h.database.getFileHashMap("n49")
+        assertEquals(setOf(java.io.File("f.txt").path), map.values.toSet())
+        h.database.insertStorageInfo(
+            "restore_temp",
+            "a5ff1c641758cc02744172a50e577bbe06c2a1c5",
+            System.currentTimeMillis(),
+            true
+        )
+        assertTrue(h.database.storageExists("restore_temp"))
+        assertTrue(h.database.getAllStorageInfo().none { it.name == "restore_temp" })
+    }
 }

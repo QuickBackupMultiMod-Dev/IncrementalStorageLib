@@ -201,37 +201,42 @@ class StorageManager(private val database: Database, private val config: IConfig
         )
     }
 
-    private fun copyDirectory(source: File, name: String) {
+    private fun copyDirectory(
+        source: File,
+        name: String,
+        fileFilter: IOFileFilter,
+        dirFilter: IOFileFilter
+    ) {
         val target = File(config.getStoragePath()).resolve("full").resolve(name)
         if (target.exists()) {
             target.deleteRecursively()
         }
         target.mkdirs()
-        source.walkTopDown().forEach { file ->
-            if (file == source) {
-                return@forEach
-            }
+        val sourceFiles = getAllFiles(source, dirFilter).filter { fileFilter.accept(it) }
+        sourceFiles.forEach { file ->
             val dest = target.resolve(file.relativeTo(source).path)
-            if (file.isDirectory) {
-                dest.mkdirs()
-            } else if (file.isFile) {
-                // Minecraft holds an exclusive lock on session.lock while the world is open.
-                // Copying it fails on Windows and is not needed to restore the save.
-                if (file.name == "session.lock") {
-                    return@forEach
-                }
-                dest.parentFile.mkdirs()
-                Files.copy(
-                    file.toPath(),
-                    dest.toPath(),
-                    StandardCopyOption.COPY_ATTRIBUTES,
-                    StandardCopyOption.REPLACE_EXISTING
-                )
-            }
+            dest.parentFile?.mkdirs()
+            Files.copy(
+                file.toPath(),
+                dest.toPath(),
+                StandardCopyOption.COPY_ATTRIBUTES,
+                StandardCopyOption.REPLACE_EXISTING
+            )
         }
     }
 
     fun fullStorage(storageName: String, desc: String, sourcePath: File) {
+        val acceptAll = FileFilterUtils.trueFileFilter()
+        fullStorage(storageName, desc, sourcePath, acceptAll, acceptAll)
+    }
+
+    fun fullStorage(
+        storageName: String,
+        desc: String,
+        sourcePath: File,
+        fileFilter: IOFileFilter,
+        dirFilter: IOFileFilter
+    ) {
         if (sourcePath.isFile) {
             throw IncrementalStorageException("Source path must be a directory")
         }
@@ -241,7 +246,7 @@ class StorageManager(private val database: Database, private val config: IConfig
         }
 
         val timestamp = System.currentTimeMillis()
-        copyDirectory(sourcePath, storageName)
+        copyDirectory(sourcePath, storageName, fileFilter, dirFilter)
 
         database.insertStorageInfo(
             storageName,

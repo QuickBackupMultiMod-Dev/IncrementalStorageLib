@@ -253,16 +253,33 @@ class StorageManagerTest {
     }
 
     @Test
-    fun `fullStorage skips session lock files`(@TempDir root: Path) {
+    fun `fullStorage copies every file when no filters are given`(@TempDir root: Path) {
         val h = harness(root)
-        h.file("level.dat", "L".toByteArray())
-        h.file("session.lock", "locked".toByteArray())
+        h.file("keep.txt", "k".toByteArray())
+        h.file("skip.me", "s".toByteArray())
 
         h.manager.fullStorage("full1", "d", h.sourceDir)
 
         val copy = h.storageDir.resolve("full").resolve("full1")
-        assertTrue(copy.resolve("level.dat").isFile)
-        assertFalse(copy.resolve("session.lock").exists())
+        assertTrue(copy.resolve("keep.txt").isFile)
+        assertTrue(copy.resolve("skip.me").isFile)
+    }
+
+    @Test
+    fun `fullStorage honors file and directory filters`(@TempDir root: Path) {
+        val h = harness(root)
+        h.file("keep.txt", "k".toByteArray())
+        h.file("skip.me", "s".toByteArray())
+        h.file("ignored/a.txt", "a".toByteArray())
+        val fileFilter = NotFileFilter(NameFileFilter("skip.me"))
+        val dirFilter = NotFileFilter(NameFileFilter("ignored"))
+
+        h.manager.fullStorage("full1", "d", h.sourceDir, fileFilter, dirFilter)
+
+        val copy = h.storageDir.resolve("full").resolve("full1")
+        assertTrue(copy.resolve("keep.txt").isFile)
+        assertFalse(copy.resolve("skip.me").exists())
+        assertFalse(copy.resolve("ignored").exists())
     }
 
     @Test
